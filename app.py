@@ -45,7 +45,7 @@ def load_icon(filename, size=(16, 16)):
 
 class NetConfigApp(tk.Window):
     def __init__(self):
-        super().__init__(themename="vapor")
+        super().__init__(themename="cerculean")
         
         self.title("Configurador de Rede Profissional")
         self.state('zoomed') # Inicia a janela maximizada
