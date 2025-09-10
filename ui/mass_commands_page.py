@@ -31,7 +31,7 @@ class MassCommandsPage(ttk.Frame):
         self.command_entry.pack(fill="x", expand=True, padx=5)
         self.command_entry.insert("1.0", "show version")
 
-        self.run_button = ttk.Button(action_frame, text="Executar nos Dispositivos Selecionados", command=lambda: run_mass_commands(self.controller))
+        self.run_button = ttk.Button(action_frame, text="Executar nos Dispositivos Selecionados", style="primary",  command=lambda: run_mass_commands(self.controller))
         self.run_button.pack(pady=10)
 
         # --- Frame de Resultados (Abaixo) ---

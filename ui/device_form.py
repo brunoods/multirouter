@@ -49,10 +49,10 @@ class DeviceForm(tk.Toplevel):
         button_frame = ttk.Frame(self)
         button_frame.pack(pady=10)
 
-        save_button = ttk.Button(button_frame, text="Salvar", command=self.on_save)
+        save_button = ttk.Button(button_frame, text="Salvar", style="primary",  command=self.on_save)
         save_button.pack(side="left", padx=10)
         
-        cancel_button = ttk.Button(button_frame, text="Cancelar", command=self.destroy)
+        cancel_button = ttk.Button(button_frame, text="Cancelar", style="danger",  command=self.destroy)
         cancel_button.pack(side="left", padx=10)
 
     def on_save(self):

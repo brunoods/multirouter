@@ -30,7 +30,7 @@ class OverviewPage(ttk.Frame):
         self.interval_entry.insert(0, "300") # Padrão de 5 minutos
         
         # O comando deste botão será definido no app.py
-        self.monitor_button = ttk.Button(monitor_controls_frame, text="Iniciar Monitorização")
+        self.monitor_button = ttk.Button(monitor_controls_frame, text="Iniciar Monitorização",  style="primary" )
         self.monitor_button.pack(side="left", padx=10)
 
 

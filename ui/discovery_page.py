@@ -36,7 +36,7 @@ class DiscoveryPage(ttk.Frame):
         action_frame = ttk.Frame(main_frame)
         action_frame.grid(row=1, column=0, pady=10)
 
-        self.run_button = ttk.Button(action_frame, text="Iniciar Descoberta", command=lambda: start_discovery(self.controller))
+        self.run_button = ttk.Button(action_frame, text="Iniciar Descoberta", style="primary",  command=lambda: start_discovery(self.controller))
         self.run_button.pack(side="left", padx=10)
         
         self.progress_bar = ttk.Progressbar(action_frame, mode='indeterminate', length=200)

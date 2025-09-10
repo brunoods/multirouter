@@ -34,9 +34,9 @@ class InventoryPage(ttk.Frame):
         button_frame = ttk.Frame(self)
         button_frame.pack(pady=10)
 
-        ttk.Button(button_frame, text="Adicionar Novo...", command=self.open_add_form).pack(side="left", padx=10)
-        ttk.Button(button_frame, text="Editar Selecionado...", command=self.open_edit_form).pack(side="left", padx=10)
-        ttk.Button(button_frame, text="Remover Selecionado", command=self.delete_selected).pack(side="left", padx=10)
+        ttk.Button(button_frame, text="Adicionar Novo...", style="primary",  command=self.open_add_form).pack(side="left", padx=10)
+        ttk.Button(button_frame, text="Editar Selecionado...", style="info",  command=self.open_edit_form).pack(side="left", padx=10)
+        ttk.Button(button_frame, text="Remover Selecionado", style="danger",  command=self.delete_selected).pack(side="left", padx=10)
         
         self.populate_inventory()
 

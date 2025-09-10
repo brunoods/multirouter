@@ -32,4 +32,4 @@ class InterfacesPage(ttk.Frame):
         ttk.Radiobutton(status_frame, text="Desabilitada", variable=self.if_status_var, value="off").pack(side="left", padx=10)
         
         # O botão agora chama a função de lógica, passando a instância principal do app
-        ttk.Button(config_frame, text="Aplicar Config. da Interface", command=lambda: configure_interface(self.controller)).grid(row=5, columnspan=2, pady=10)
+        ttk.Button(config_frame, text="Aplicar Config. da Interface", style="primary",  command=lambda: configure_interface(self.controller)).grid(row=5, columnspan=2, pady=10)

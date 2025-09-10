@@ -25,8 +25,8 @@ class TemplateForm(tk.Toplevel):
         button_frame = ttk.Frame(self)
         button_frame.pack(pady=10)
         
-        ttk.Button(button_frame, text="Aplicar", command=self.on_apply).pack(side="left", padx=10)
-        ttk.Button(button_frame, text="Cancelar", command=self.destroy).pack(side="left", padx=10)
+        ttk.Button(button_frame, text="Aplicar", style="primary",  command=self.on_apply).pack(side="left", padx=10)
+        ttk.Button(button_frame, text="Cancelar", style="danger",  command=self.destroy).pack(side="left", padx=10)
 
     def on_apply(self):
         """Coleta os valores dos campos e fecha a janela."""

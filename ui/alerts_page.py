@@ -25,7 +25,7 @@ class AlertsPage(ttk.Frame):
         self.interface_combobox = ttk.Combobox(creation_frame, state="readonly", width=25)
         self.interface_combobox.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
 
-        ttk.Button(creation_frame, text="Adicionar Regra", command=self.save_rule).grid(row=2, column=0, columnspan=2, pady=10)
+        ttk.Button(creation_frame, text="Adicionar Regra", style="primary", command=self.save_rule).grid(row=2, column=0, columnspan=2, pady=10)
 
         rules_frame = ttk.LabelFrame(main_frame, text="Regras de Alerta Ativas")
         rules_frame.grid(row=1, column=0, padx=20, pady=(0, 10), sticky="nsew")
@@ -41,7 +41,7 @@ class AlertsPage(ttk.Frame):
         self.tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         
-        ttk.Button(main_frame, text="Remover Regra Selecionada", command=self.delete_rule).grid(row=2, column=0, pady=10)
+        ttk.Button(main_frame, text="Remover Regra Selecionada", style="danger", command=self.delete_rule).grid(row=2, column=0, pady=10)
 
     def on_device_select(self, event=None):
         selected_device_name = self.device_combobox.get()

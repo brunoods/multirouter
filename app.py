@@ -1,6 +1,6 @@
-# app.py
-import tkinter as tk
-from tkinter import ttk
+import ttkbootstrap as tk
+from ttkbootstrap import ttk
+from ttkbootstrap.style import Bootstyle
 from PIL import Image, ImageTk
 
 # Importa as nossas "páginas" e a "lógica"
@@ -43,27 +43,14 @@ def load_icon(filename, size=(16, 16)):
         print(f"Aviso: Ícone não encontrado em '{path}'")
         return None
 
-class NetConfigApp(tk.Tk):
+class NetConfigApp(tk.Window):
     def __init__(self):
-        super().__init__()
+        super().__init__(themename="vapor")
+        
         self.title("Configurador de Rede Profissional")
-        self.geometry("1200x750")
+        self.state('zoomed') # Inicia a janela maximizada
 
-        # --- Tenta carregar o tema visual (opcional) ---
-        try:
-            self.tk.call('source', 'azure.tcl')
-            self.tk.call('set_theme', 'dark')
-        except tk.TclError:
-            print("Aviso: Tema 'azure.tcl' não encontrado. A usar tema padrão.")
-            self.style = ttk.Style(self)
-            self.style.theme_use("clam")
-
-        # Configura estilos adicionais
-        self.style.configure("Menu.TButton", font=('Segoe UI', 10), padding=10, width=20, borderwidth=0)
-        self.style.map("Menu.TButton", background=[("active", "#d0d0d0")])
-        self.style.configure("TLabelFrame", padding=10)
-        self.style.configure("TLabelFrame.Label", font=('Segoe UI', 11, 'bold'))
-        self.style.configure("Toolbar.TButton", padding=5)
+        # --- Personalização Avançada de Estilos ---
 
         # --- Carregar Ícones ---
         self.icons = {
@@ -97,7 +84,7 @@ class NetConfigApp(tk.Tk):
         main_pane.grid(row=1, column=0, sticky="nsew")
 
         menu_frame = ttk.Frame(main_pane, width=260)
-        menu_frame.pack_propagate(False) # Garante que o menu mantém a sua largura
+        menu_frame.pack_propagate(False)
         main_pane.add(menu_frame, weight=0) 
         
         self.create_menu_widgets(menu_frame)
@@ -138,38 +125,43 @@ class NetConfigApp(tk.Tk):
         self.device_combobox = ttk.Combobox(parent, state="readonly", width=25)
         self.device_combobox.pack(side="left", padx=(0, 10))
         
-        ttk.Button(parent, text="Conectar", image=self.icons.get('connect'), compound="left", command=lambda: connect_and_read_config(self)).pack(side="left")
+        ttk.Button(parent, text="Conectar", image=self.icons.get('connect'), compound="left", command=lambda: connect_and_read_config(self), bootstyle="primary").pack(side="left")
+        
         ttk.Separator(parent, orient="vertical").pack(side="left", padx=10, fill="y")
-        ttk.Button(parent, text="Salvar", image=self.icons.get('save'), compound="left", command=lambda: save_configuration(self)).pack(side="left", padx=2)
-        ttk.Button(parent, text="Exportar", image=self.icons.get('export'), compound="left", command=lambda: export_configuration(self)).pack(side="left", padx=2)
-        ttk.Button(parent, text="Restaurar", image=self.icons.get('restore'), compound="left", command=lambda: restore_configuration(self)).pack(side="left", padx=2)
+        
+        ttk.Button(parent, text="Salvar", image=self.icons.get('save'), compound="left", command=lambda: save_configuration(self), bootstyle="primary").pack(side="left", padx=2)
+
+        ttk.Button(parent, text="Exportar", image=self.icons.get('export'), compound="left", command=lambda: export_configuration(self), bootstyle="primary").pack(side="left", padx=2)
+
+        ttk.Button(parent, text="Restaurar", image=self.icons.get('restore'), compound="left", command=lambda: restore_configuration(self), bootstyle="primary").pack(side="left", padx=2)
+
         ttk.Separator(parent, orient="vertical").pack(side="left", padx=10, fill="y")
-        ttk.Checkbutton(parent, text="Modo Simulação", variable=self.sim_mode).pack(side="left", padx=10)
+        ttk.Checkbutton(parent, text="Modo Simulação", variable=self.sim_mode, bootstyle="round-toggle").pack(side="left", padx=10)
 
     def create_menu_widgets(self, parent):
         """Cria os widgets de navegação no menu da esquerda."""
         nav_frame = ttk.LabelFrame(parent, text="Gestão e Visualização")
         nav_frame.pack(fill="x", padx=10, pady=10)
-        ttk.Button(nav_frame, text="Visão Geral", image=self.icons.get('overview'), compound="left", command=lambda: self.show_frame(OverviewPage)).pack(fill="x")
-        ttk.Button(nav_frame, text="Inventário", image=self.icons.get('inventory'), compound="left", command=lambda: self.show_frame(InventoryPage)).pack(fill="x")
-        ttk.Button(nav_frame, text="Descoberta de Rede", image=self.icons.get('discovery'), compound="left", command=lambda: self.show_frame(DiscoveryPage)).pack(fill="x")
-        ttk.Button(nav_frame, text="Gestão de IPs (IPAM)", image=self.icons.get('ipam'), compound="left", command=lambda: self.show_frame(IPAMPage)).pack(fill="x")
-        ttk.Button(nav_frame, text="Alertas", image=self.icons.get('alerts'), compound="left", command=lambda: self.show_frame(AlertsPage)).pack(fill="x")
+        ttk.Button(nav_frame, text="Visão Geral", image=self.icons.get('overview'), compound="left", command=lambda: self.show_frame(OverviewPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(nav_frame, text="Inventário", image=self.icons.get('inventory'), compound="left", command=lambda: self.show_frame(InventoryPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(nav_frame, text="Descoberta de Rede", image=self.icons.get('discovery'), compound="left", command=lambda: self.show_frame(DiscoveryPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(nav_frame, text="Gestão de IPs (IPAM)", image=self.icons.get('ipam'), compound="left", command=lambda: self.show_frame(IPAMPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(nav_frame, text="Alertas", image=self.icons.get('alerts'), compound="left", command=lambda: self.show_frame(AlertsPage), style="Left.light.TButton").pack(fill="x")
         
         tools_frame = ttk.LabelFrame(parent, text="Ferramentas e Automação")
         tools_frame.pack(fill="x", padx=10, pady=10)
-        ttk.Button(tools_frame, text="Templates", image=self.icons.get('templates'), compound="left", command=lambda: self.show_frame(TemplatesPage)).pack(fill="x")
-        ttk.Button(tools_frame, text="Comandos em Massa", image=self.icons.get('mass_commands'), compound="left", command=lambda: self.show_frame(MassCommandsPage)).pack(fill="x")
-        ttk.Button(tools_frame, text="Comparar Configs", image=self.icons.get('diff'), compound="left", command=lambda: self.show_frame(ConfigDiffPage)).pack(fill="x")
-        ttk.Button(tools_frame, text="Diagnóstico", image=self.icons.get('diagnostics'), compound="left", command=lambda: self.show_frame(DiagnosticsPage)).pack(fill="x")
+        ttk.Button(tools_frame, text="Templates", image=self.icons.get('templates'), compound="left", command=lambda: self.show_frame(TemplatesPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(tools_frame, text="Comandos em Massa", image=self.icons.get('mass_commands'), compound="left", command=lambda: self.show_frame(MassCommandsPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(tools_frame, text="Comparar Configs", image=self.icons.get('diff'), compound="left", command=lambda: self.show_frame(ConfigDiffPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(tools_frame, text="Diagnóstico", image=self.icons.get('diagnostics'), compound="left", command=lambda: self.show_frame(DiagnosticsPage), style="Left.light.TButton").pack(fill="x")
 
         config_frame = ttk.LabelFrame(parent, text="Configuração e Auditoria")
         config_frame.pack(fill="x", padx=10, pady=10)
-        ttk.Button(config_frame, text="Interfaces", image=self.icons.get('interfaces'), compound="left", command=lambda: self.show_frame(InterfacesPage)).pack(fill="x")
-        ttk.Button(config_frame, text="VLANs", image=self.icons.get('vlans'), compound="left", command=lambda: self.show_frame(VlansPage)).pack(fill="x")
-        ttk.Button(config_frame, text="Roteamento", image=self.icons.get('routing'), compound="left", command=lambda: self.show_frame(RoutingPage)).pack(fill="x")
-        ttk.Button(config_frame, text="Segurança", image=self.icons.get('security'), compound="left", command=lambda: self.show_frame(SecurityPage)).pack(fill="x")
-        ttk.Button(config_frame, text="Auditoria", image=self.icons.get('compliance'), compound="left", command=lambda: self.show_frame(CompliancePage)).pack(fill="x")
+        ttk.Button(config_frame, text="Interfaces", image=self.icons.get('interfaces'), compound="left", command=lambda: self.show_frame(InterfacesPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(config_frame, text="VLANs", image=self.icons.get('vlans'), compound="left", command=lambda: self.show_frame(VlansPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(config_frame, text="Roteamento", image=self.icons.get('routing'), compound="left", command=lambda: self.show_frame(RoutingPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(config_frame, text="Segurança", image=self.icons.get('security'), compound="left", command=lambda: self.show_frame(SecurityPage), style="Left.light.TButton").pack(fill="x")
+        ttk.Button(config_frame, text="Auditoria", image=self.icons.get('compliance'), compound="left", command=lambda: self.show_frame(CompliancePage), style="Left.light.TButton").pack(fill="x")
 
     def show_frame(self, cont):
         """Mostra um frame (página) específico."""
@@ -224,23 +216,37 @@ class NetConfigApp(tk.Tk):
         if hasattr(security_page, 'acl_combobox'):
             acl_display_list = [f"{acl['name_id']} ({acl['type']})" for acl in parsed_acls]
             security_page.acl_combobox['values'] = acl_display_list
-            security_page.acl_combobox.set("Selecione uma ACL...")
+            if acl_display_list:
+                security_page.acl_combobox.set(acl_display_list[0])
+            else:
+                security_page.acl_combobox.set("Selecione uma ACL...")
             
     def on_interface_select_overview(self, event):
         """Chamado quando uma interface é selecionada na tabela de Visão Geral."""
-        overview_page = self.frames[self.pages["OverviewPage"]]
-        interface_page = self.frames[self.pages["InterfacesPage"]]
+        overview_page = self.frames[OverviewPage]
+        interface_page = self.frames[InterfacesPage]
         selected_item = overview_page.interfaces_tree.focus()
         if not selected_item: return
-        item_details = overview_page.interfaces_tree.item(selected_item, 'values')
-        if_name, ip_addr, status, description, access_vlan = item_details
+        
+        item_values = overview_page.interfaces_tree.item(selected_item, 'values')
+        if not item_values or len(item_values) < 5: return
+
+        if_name, ip_addr, status, description, access_vlan = item_values
+        
         interface_page.selected_interface_name = if_name
         interface_page.if_config_label.config(text=f"Interface: {if_name}")
         interface_page.entry_if_desc.delete(0, tk.END); interface_page.entry_if_desc.insert(0, description)
         interface_page.if_status_var.set("on" if status == "no shutdown" else "off")
+        
         vlan_to_select = "Nenhuma"
-        for item in interface_page.vlan_combobox['values']:
-            if item.startswith(f"{access_vlan} "):
-                vlan_to_select = item
-                break
-        interface_page.vlan_combobox.set(vlan_to_select)
+        if hasattr(interface_page, 'vlan_combobox'):
+            for item in interface_page.vlan_combobox['values']:
+                if item.startswith(f"{access_vlan} "):
+                    vlan_to_select = item
+                    break
+            interface_page.vlan_combobox.set(vlan_to_select)
+
+# Bloco para executar a aplicação
+if __name__ == "__main__":
+    app = NetConfigApp()
+    app.mainloop()

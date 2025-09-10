@@ -24,4 +24,4 @@ class RoutingPage(ttk.Frame):
         self.entry_route_nexthop = ttk.Entry(config_frame, width=25)
         self.entry_route_nexthop.grid(row=2, column=1, pady=5, padx=5)
 
-        ttk.Button(config_frame, text="Adicionar Rota", command=lambda: add_static_route(self.controller)).grid(row=3, columnspan=2, pady=10)
+        ttk.Button(config_frame, text="Adicionar Rota", style="primary", command=lambda: add_static_route(self.controller)).grid(row=3, columnspan=2, pady=10)

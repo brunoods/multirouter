@@ -21,8 +21,8 @@ class IPAMPage(ttk.Frame):
         self.subnet_list.grid(row=0, column=0, columnspan=2, sticky="nsew", pady=5)
         self.subnet_list.bind("<<ListboxSelect>>", self.on_subnet_select)
         
-        ttk.Button(left_frame, text="Adicionar", command=self.open_add_subnet_form).grid(row=1, column=0, sticky="ew", padx=(0,2), pady=5)
-        ttk.Button(left_frame, text="Remover", command=self.delete_selected_subnet).grid(row=1, column=1, sticky="ew", padx=(2,0), pady=5)
+        ttk.Button(left_frame, text="Adicionar", style="primary",  command=self.open_add_subnet_form).grid(row=1, column=0, sticky="ew", padx=(0,2), pady=5)
+        ttk.Button(left_frame, text="Remover", style="danger",  command=self.delete_selected_subnet).grid(row=1, column=1, sticky="ew", padx=(2,0), pady=5)
         
         # --- Painel Direito: Detalhes dos IPs ---
         right_frame = ttk.LabelFrame(self, text="Detalhes da Sub-rede")
@@ -101,8 +101,8 @@ class AddSubnetForm(tk.Toplevel):
 
         button_frame = ttk.Frame(self)
         button_frame.pack(pady=10)
-        ttk.Button(button_frame, text="Adicionar", command=self.on_add).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Cancelar", command=self.destroy).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Adicionar", style="primary",  command=self.on_add).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Cancelar", style="danger",  command=self.destroy).pack(side="left", padx=5)
 
     def on_add(self):
         self.result = {

@@ -20,4 +20,4 @@ class VlansPage(ttk.Frame):
         self.entry_vlan_name = ttk.Entry(config_frame, width=25)
         self.entry_vlan_name.grid(row=1, column=1, pady=5, padx=5)
 
-        ttk.Button(config_frame, text="Criar/Atualizar VLAN", command=lambda: create_vlan(self.controller)).grid(row=2, columnspan=2, pady=10)
+        ttk.Button(config_frame, text="Criar/Atualizar VLAN", style="primary",  command=lambda: create_vlan(self.controller)).grid(row=2, columnspan=2, pady=10)

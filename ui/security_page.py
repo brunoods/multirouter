@@ -50,4 +50,4 @@ class SecurityPage(ttk.Frame):
         self.options_entry.grid(row=4, column=1, sticky="w", padx=5, pady=2)
         
         # --- Botão de Ação ---
-        ttk.Button(main_frame, text="Adicionar Regra", command=lambda: add_acl_rule(self.controller)).grid(row=2, column=0, columnspan=3, pady=20)
+        ttk.Button(main_frame, text="Adicionar Regra", style="primary",  command=lambda: add_acl_rule(self.controller)).grid(row=2, column=0, columnspan=3, pady=20)

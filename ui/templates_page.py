@@ -27,8 +27,8 @@ class TemplatesPage(ttk.Frame):
         self.template_list.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=5)
         self.template_list.bind("<<ListboxSelect>>", self.on_template_select)
 
-        ttk.Button(left_frame, text="Novo", command=self.new_template).grid(row=2, column=0, sticky="ew", pady=5, padx=(0,2))
-        ttk.Button(left_frame, text="Remover", command=self.delete_selected_template).grid(row=2, column=1, sticky="ew", pady=5, padx=(2,0))
+        ttk.Button(left_frame, text="Novo", style="primary",  command=self.new_template).grid(row=2, column=0, sticky="ew", pady=5, padx=(0,2))
+        ttk.Button(left_frame, text="Remover", style="danger",  command=self.delete_selected_template).grid(row=2, column=1, sticky="ew", pady=5, padx=(2,0))
 
         # --- Painel Direito: Editor e Ações do Template ---
         right_frame = ttk.Frame(self)
@@ -45,8 +45,8 @@ class TemplatesPage(ttk.Frame):
         self.editor_text = scrolledtext.ScrolledText(right_frame, wrap=tk.WORD, font=("Consolas", 10))
         self.editor_text.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=5)
 
-        ttk.Button(right_frame, text="Salvar Template", command=self.save_current_template).grid(row=2, column=0, sticky="e", pady=10)
-        ttk.Button(right_frame, text="Aplicar Template ao Dispositivo...", command=self.apply_template).grid(row=2, column=1, sticky="w", pady=10, padx=10)
+        ttk.Button(right_frame, text="Salvar Template", style="primary",  command=self.save_current_template).grid(row=2, column=0, sticky="e", pady=10)
+        ttk.Button(right_frame, text="Aplicar Template ao Dispositivo...", style="primary",  command=self.apply_template).grid(row=2, column=1, sticky="w", pady=10, padx=10)
 
         self.populate_template_list()
 

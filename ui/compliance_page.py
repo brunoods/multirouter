@@ -18,8 +18,7 @@ class CompliancePage(ttk.Frame):
         control_frame = ttk.Frame(main_frame)
         control_frame.grid(row=0, column=0, pady=10)
         
-        self.run_button = ttk.Button(control_frame, text="Executar Auditoria em Todos os Dispositivos", 
-                                     command=lambda: run_compliance_audit(self.controller))
+        self.run_button = ttk.Button(control_frame, text="Executar Auditoria em Todos os Dispositivos", style="primary", command=lambda: run_compliance_audit(self.controller))
         self.run_button.pack()
 
         # --- Tabela de Resultados ---

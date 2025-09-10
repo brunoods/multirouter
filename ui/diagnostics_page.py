@@ -28,11 +28,11 @@ class DiagnosticsPage(ttk.Frame):
         button_frame.grid(row=1, column=0, pady=10)
 
         self.ping_button = ttk.Button(button_frame, text="Executar Ping", 
-                                      command=lambda: run_diagnostic_command(self.controller, 'ping'))
+                                    style="primary",    command=lambda: run_diagnostic_command(self.controller, 'ping'))
         self.ping_button.pack(side="left", padx=10)
 
         self.trace_button = ttk.Button(button_frame, text="Executar Traceroute", 
-                                       command=lambda: run_diagnostic_command(self.controller, 'traceroute'))
+                                    style="primary",     command=lambda: run_diagnostic_command(self.controller, 'traceroute'))
         self.trace_button.pack(side="left", padx=10)
 
         # --- Frame de Resultados ---

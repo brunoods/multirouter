@@ -18,7 +18,7 @@ class ConfigDiffPage(ttk.Frame):
         frame_a.grid_rowconfigure(1, weight=1)
         frame_a.grid_columnconfigure(0, weight=1)
         
-        ttk.Button(frame_a, text="Carregar Ficheiro A...", command=lambda: load_file_into_text_widget(self.text_a)).grid(row=0, column=0, pady=5)
+        ttk.Button(frame_a, text="Carregar Ficheiro A...", style="primary",  command=lambda: load_file_into_text_widget(self.text_a)).grid(row=0, column=0, pady=5)
         self.text_a = scrolledtext.ScrolledText(frame_a, wrap=tk.WORD, font=("Consolas", 9))
         self.text_a.grid(row=1, column=0, sticky="nsew")
 
@@ -28,7 +28,7 @@ class ConfigDiffPage(ttk.Frame):
         frame_b.grid_rowconfigure(1, weight=1)
         frame_b.grid_columnconfigure(0, weight=1)
 
-        ttk.Button(frame_b, text="Carregar Ficheiro B...", command=lambda: load_file_into_text_widget(self.text_b)).grid(row=0, column=0, pady=5)
+        ttk.Button(frame_b, text="Carregar Ficheiro B...", style="primary",  command=lambda: load_file_into_text_widget(self.text_b)).grid(row=0, column=0, pady=5)
         self.text_b = scrolledtext.ScrolledText(frame_b, wrap=tk.WORD, font=("Consolas", 9))
         self.text_b.grid(row=1, column=0, sticky="nsew")
         
@@ -38,7 +38,7 @@ class ConfigDiffPage(ttk.Frame):
         center_frame.grid_rowconfigure(1, weight=1)
         center_frame.grid_columnconfigure(0, weight=1)
 
-        ttk.Button(center_frame, text="---> Comparar <---", command=lambda: compare_configs(self.controller)).pack(pady=20)
+        ttk.Button(center_frame, text="---> Comparar <---", style="primary",  command=lambda: compare_configs(self.controller)).pack(pady=20)
         
         results_frame = ttk.LabelFrame(center_frame, text="Diferenças")
         results_frame.pack(fill="both", expand=True)
