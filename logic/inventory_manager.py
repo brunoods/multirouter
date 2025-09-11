@@ -1,60 +1,85 @@
-# logic/inventory_manager.py
 """
-Módulo para gerir o inventário de dispositivos (carregar, salvar, etc.).
+Gere o inventário de dispositivos, lidando com o carregamento e
+armazenamento de dados a partir de um ficheiro JSON.
 """
 import json
-import time
-from tkinter import messagebox
+import os
+import logging
 
-DEVICES_FILE = "devices.json"
+class InventoryManager:
+    """Uma classe para gerir as operações CRUD de dispositivos de rede."""
 
+    def __init__(self, filename="devices.json"):
+        """
+        Inicializa o gestor de inventário.
 
-def load_inventory():
-    """Carrega o inventário de dispositivos do ficheiro JSON."""
-    try:
-        with open(DEVICES_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
+        Args:
+            filename (str): O nome do ficheiro JSON para guardar os dispositivos.
+        """
+        self.filename = filename
+        self.devices = self._load_devices()
+        logging.info(f"{len(self.devices)} dispositivos carregados de {self.filename}.")
+
+    def _load_devices(self):
+        """Carrega a lista de dispositivos do ficheiro JSON."""
+        if os.path.exists(self.filename):
+            try:
+                with open(self.filename, "r") as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                logging.error(f"Erro ao ler o ficheiro JSON: {self.filename}. Ficheiro corrompido ou vazio.")
+                return []
         return []
-    except json.JSONDecodeError:
-        messagebox.showerror(
-            "Erro de Inventário", f"O ficheiro {DEVICES_FILE} está corrompido."
-        )
-        return []
 
+    def _save_devices(self):
+        """Guarda a lista atual de dispositivos no ficheiro JSON."""
+        try:
+            with open(self.filename, "w") as f:
+                json.dump(self.devices, f, indent=4)
+            logging.info(f"Inventário guardado com sucesso em {self.filename}.")
+        except Exception as e:
+            logging.error(f"Não foi possível guardar o inventário em {self.filename}: {e}")
 
-def save_inventory(devices):
-    """Salva a lista de dispositivos no ficheiro JSON."""
-    try:
-        with open(DEVICES_FILE, "w", encoding="utf-8") as f:
-            json.dump(devices, f, indent=4)
-    except Exception as e:
-        messagebox.showerror(
-            "Erro ao Salvar", f"Não foi possível salvar o inventário: {e}"
-        )
+    def get_devices(self):
+        """Retorna a lista completa de dispositivos."""
+        return self.devices
 
+    def add_device(self, device):
+        """
+        Adiciona um novo dispositivo ao inventário e guarda.
 
-def add_device(device_details):
-    """Adiciona um novo dispositivo ao inventário."""
-    inventory = load_inventory()
-    device_details["id"] = int(time.time() * 1000)
-    inventory.append(device_details)
-    save_inventory(inventory)
+        Args:
+            device (dict): O dicionário do dispositivo a ser adicionado.
+        """
+        self.devices.append(device)
+        self._save_devices()
+        logging.info(f"Dispositivo adicionado: {device.get('ip')}")
 
+    def update_device(self, index, updated_device):
+        """
+        Atualiza um dispositivo existente no inventário e guarda.
 
-def update_device(updated_device):
-    """Atualiza um dispositivo existente no inventário."""
-    inventory = load_inventory()
-    for i, device in enumerate(inventory):
-        if device.get("id") == updated_device.get("id"):
-            # Atualiza apenas as chaves presentes no dicionário 'updated_device'
-            inventory[i].update(updated_device)
-            break
-    save_inventory(inventory)
+        Args:
+            index (int): O índice do dispositivo a ser atualizado.
+            updated_device (dict): O dicionário com os dados atualizados.
+        """
+        if 0 <= index < len(self.devices):
+            self.devices[index] = updated_device
+            self._save_devices()
+            logging.info(f"Dispositivo atualizado: {updated_device.get('ip')}")
+        else:
+            logging.warning(f"Tentativa de atualizar um dispositivo com índice inválido: {index}")
 
+    def remove_device(self, index):
+        """
+        Remove um dispositivo do inventário e guarda.
 
-def remove_device(device_id):
-    """Remove um dispositivo do inventário pelo seu ID."""
-    inventory = load_inventory()
-    inventory = [device for device in inventory if device.get("id") != device_id]
-    save_inventory(inventory)
+        Args:
+            index (int): O índice do dispositivo a ser removido.
+        """
+        if 0 <= index < len(self.devices):
+            removed_device = self.devices.pop(index)
+            self._save_devices()
+            logging.info(f"Dispositivo removido: {removed_device.get('ip')}")
+        else:
+            logging.warning(f"Tentativa de remover um dispositivo com índice inválido: {index}")
