@@ -1,68 +1,52 @@
-"""
-Este módulo gere a execução de comandos em múltiplos dispositivos em simultâneo.
-"""
-
 import threading
 from logic.connection import get_connection
 
-# Nota: As importações de NetmikoTimeoutException e
-# NetmikoAuthenticationException foram removidas porque não eram usadas aqui.
-
-
-def run_mass_commands(
-    devices, commands, mass_commands_page, progress_callback, completion_callback
-):
+class MassCommands:
     """
-    Executa comandos em múltiplos dispositivos de forma assíncrona.
-
-    Args:
-        devices (list): Lista de dispositivos onde os comandos serão executados.
-        commands (str): String com os comandos a serem executados, um por linha.
-        mass_commands_page: A página da UI para atualizar com os resultados.
-        progress_callback (function): Função para ser chamada com o progresso.
-        completion_callback (function): Função a ser chamada quando tudo terminar.
+    Encapsula a lógica para executar comandos em massa de forma assíncrona.
     """
-    command_list = commands.splitlines()
-    thread = threading.Thread(
-        target=_execute_commands_thread,
-        args=(
-            devices,
-            command_list,
-            mass_commands_page,
-            progress_callback,
-            completion_callback,
-        ),
-    )
-    thread.start()
+    def execute(self, devices, commands, ui_update_callback, completion_callback):
+        """
+        Inicia a execução dos comandos numa thread separada para não bloquear a UI.
 
+        Args:
+            devices (list): A lista de dispositivos.
+            commands (list): A lista de comandos.
+            ui_update_callback (function): Função para ser chamada com a saída de cada dispositivo.
+            completion_callback (function): Função a ser chamada quando tudo terminar.
+        """
+        thread = threading.Thread(
+            target=self._thread_worker,
+            args=(devices, commands, ui_update_callback, completion_callback),
+        )
+        thread.start()
 
-def _execute_commands_thread(
-    devices, command_list, mass_commands_page, progress_callback, completion_callback
-):
-    """
-    Função executada numa thread para enviar comandos para os dispositivos.
-    """
-    total_devices = len(devices)
-    for i, device in enumerate(devices):
-        ip = device.get("ip")
-        output = f"--- A executar comandos em {ip} ---\n"
-        connection = get_connection(device)
-        if connection:
-            for command in command_list:
+    def _thread_worker(self, devices, commands, ui_update_callback, completion_callback):
+        """
+        O trabalho que é executado na thread. Conecta-se a cada dispositivo e executa os comandos.
+        """
+        for device in devices:
+            ip = device.get("ip")
+            device_name = device.get("name", ip)
+            output = f"--- {device_name} ({ip}) ---\n"
+            
+            connection = get_connection(device)
+            if connection:
                 try:
-                    result = connection.send_command(command)
-                    output += f"$ {command}\n{result}\n"
+                    for command in commands:
+                        result = connection.send_command(command)
+                        output += f"$ {command}\n{result}\n"
                 except Exception as e:
-                    output += f"Erro ao executar o comando '{command}' em {ip}: {e}\n"
-            output += f"--- Fim da execução em {ip} ---\n\n"
-        else:
-            output = f"--- Dispositivo {ip} não conectado ---\n\n"
-
-        # Atualiza a UI a partir da thread principal
-        mass_commands_page.after(0, mass_commands_page.update_output, output)
-
-        # Atualiza o progresso
-        progress = int(((i + 1) / total_devices) * 100)
-        progress_callback(progress)
-
-    completion_callback()
+                    output += f"Erro: {e}\n"
+                finally:
+                    connection.disconnect()
+            else:
+                output += "Falha ao conectar.\n"
+            
+            output += "\n"
+            
+            # Usa o callback para enviar a atualização para a UI de forma segura
+            ui_update_callback(output)
+        
+        # Chama o callback de conclusão
+        completion_callback()

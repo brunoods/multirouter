@@ -1,94 +1,98 @@
-"""
-Página da interface para execução de comandos em massa.
-"""
+import tkinter as tk
+from tkinter import ttk, messagebox
+from .base_page import BasePage
+from logic.inventory_manager import InventoryManager
+from logic.mass_commands import MassCommands
 
-from tkinter import ttk
-from ttkbootstrap.scrolled import ScrolledText
-from logic.mass_commands import run_mass_commands
-
-
-class MassCommandsPage(ttk.Frame):
-    """Frame para a funcionalidade de comandos em massa."""
-
+class MassCommandsPage(BasePage):
     def __init__(self, parent, app):
-        super().__init__(parent)
-        self.app = app
-        self.create_widgets()
+        super().__init__(parent, app, page_title="Comandos em Massa")
 
-    def create_widgets(self):
-        """Cria os widgets da página."""
-        # Frame para a lista de dispositivos e comandos
-        input_frame = ttk.Frame(self)
-        input_frame.pack(fill="x", padx=10, pady=10)
+    def create_content(self):
+        self.inventory_manager = InventoryManager()
+        self.mass_commands = MassCommands()
 
-        # Treeview para selecionar dispositivos
-        self.device_tree = ttk.Treeview(
-            input_frame, columns=("ip",), show="headings", height=5
-        )
-        self.device_tree.heading("ip", text="Selecionar Dispositivos")
-        self.device_tree.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        # Área de texto para os comandos
-        self.command_text = ScrolledText(input_frame, wrap="word", height=5)
-        self.command_text.pack(side="left", fill="both", expand=True)
+        devices_frame = ttk.Labelframe(main_frame, text="Dispositivos", padding=10)
+        devices_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
-        # Botão para executar
-        run_btn = ttk.Button(
-            self, text="Executar Comandos", command=self.execute, bootstyle="primary"
-        )
-        run_btn.pack(pady=5)
+        self.device_listbox = tk.Listbox(devices_frame, selectmode=tk.MULTIPLE)
+        self.device_listbox.pack(fill=tk.BOTH, expand=True)
+        
+        commands_frame = ttk.Frame(main_frame)
+        commands_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
-        # Barra de progresso
-        self.progress = ttk.Progressbar(
-            self, orient="horizontal", mode="determinate", length=300
-        )
-        self.progress.pack(pady=5)
+        command_input_frame = ttk.Labelframe(commands_frame, text="Comandos (um por linha)", padding=10)
+        command_input_frame.pack(fill=tk.X)
 
-        # Área de texto para o resultado
-        output_frame = ttk.Labelframe(self, text="Resultado", padding=10)
-        output_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        self.output_text = ScrolledText(output_frame, wrap="word")
-        self.output_text.pack(fill="both", expand=True)
+        self.command_text = tk.Text(command_input_frame, height=5)
+        self.command_text.pack(fill=tk.X, expand=True)
 
-    def update_device_list(self, devices):
-        """Atualiza a lista de dispositivos na Treeview."""
-        self.device_tree.delete(*self.device_tree.get_children())
+        self.execute_button = ttk.Button(command_input_frame, text="Executar", command=self.execute_commands, style='primary.TButton')
+        self.execute_button.pack(pady=5)
+        
+        self.progress_bar = ttk.Progressbar(command_input_frame, mode='indeterminate')
+        self.progress_bar.pack(fill=tk.X, pady=(5,0))
+
+        results_frame = ttk.Labelframe(commands_frame, text="Resultados", padding=10)
+        results_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        
+        self.results_text = tk.Text(results_frame, state=tk.DISABLED, wrap=tk.WORD)
+        self.results_text.pack(fill=tk.BOTH, expand=True)
+
+        self.refresh()
+
+    def refresh(self):
+        self.device_listbox.delete(0, tk.END)
+        devices = self.inventory_manager.get_devices()
         for device in devices:
-            self.device_tree.insert("", "end", values=(device["ip"],))
+            self.device_listbox.insert(tk.END, f"{device['name']} ({device['ip']})")
 
-    def execute(self):
-        """Inicia a execução dos comandos em massa."""
-        selected_items = self.device_tree.selection()
-        if not selected_items:
-            self.update_output("Nenhum dispositivo selecionado.\n")
+    def execute_commands(self):
+        selected_indices = self.device_listbox.curselection()
+        if not selected_indices:
+            messagebox.showwarning("Aviso", "Selecione pelo menos um dispositivo.")
             return
 
-        all_devices = self.app.inventory_manager.get_devices()
-        selected_ips = {
-            self.device_tree.item(item)["values"][0] for item in selected_items
-        }
+        commands_str = self.command_text.get("1.0", tk.END).strip()
+        if not commands_str:
+            messagebox.showwarning("Aviso", "Insira pelo menos um comando.")
+            return
+        
+        commands_list = commands_str.split('\n')
 
-        selected_devices = [dev for dev in all_devices if dev["ip"] in selected_ips]
+        all_devices = self.inventory_manager.get_devices()
+        selected_devices = [all_devices[i] for i in selected_indices]
+        
+        self.results_text.config(state=tk.NORMAL)
+        self.results_text.delete("1.0", tk.END)
+        self.results_text.config(state=tk.DISABLED)
+        
+        self.execute_button.config(state=tk.DISABLED)
+        self.progress_bar.start()
 
-        commands = self.command_text.get("1.0", "end-1c")
-
-        self.output_text.delete("1.0", "end")
-        self.progress["value"] = 0
-
-        run_mass_commands(
-            selected_devices, commands, self, self.update_progress, self.on_complete
+        self.mass_commands.execute(
+            selected_devices,
+            commands_list,
+            ui_update_callback=self.update_results,
+            completion_callback=self.on_complete
         )
 
-    def update_output(self, data):
-        """Adiciona texto à área de resultado."""
-        self.output_text.insert("end", data)
-        self.output_text.see("end")
+    def update_results(self, output):
+        self.after(0, self._append_to_results, output)
 
-    def update_progress(self, value):
-        """Atualiza a barra de progresso."""
-        self.progress["value"] = value
+    def _append_to_results(self, output):
+        self.results_text.config(state=tk.NORMAL)
+        self.results_text.insert(tk.END, output)
+        self.results_text.see(tk.END)
+        self.results_text.config(state=tk.DISABLED)
 
     def on_complete(self):
-        """Chamado quando a execução termina."""
-        self.update_output("\n--- Execução Concluída ---\n")
-        self.progress["value"] = 100
+        self.after(0, self._finalize_execution)
+        
+    def _finalize_execution(self):
+        self.progress_bar.stop()
+        self.execute_button.config(state=tk.NORMAL)
+        self._append_to_results("\n--- Execução Concluída ---")

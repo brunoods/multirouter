@@ -1,96 +1,75 @@
-"""
-Página da interface do utilizador para gerir o inventário de dispositivos.
-"""
-from tkinter import ttk, messagebox
+import tkinter as tk
+from tkinter import ttk
+from ui.base_page import BasePage # <-- MUDANÇA AQUI
 from .device_form import DeviceForm
+from logic.inventory_manager import InventoryManager
 
-class InventoryPage(ttk.Frame):
-    """Frame que contém os widgets para a gestão do inventário."""
-
+class InventoryPage(BasePage):
     def __init__(self, parent, app):
-        """
-        Inicializa a página de inventário.
+        super().__init__(parent, app, page_title="Gestão de Inventário")
 
-        Args:
-            parent: O widget pai (normalmente, o content_frame).
-            app: A instância principal da aplicação.
-        """
-        super().__init__(parent)
-        self.app = app
-        self.inventory_manager = app.inventory_manager
+    def create_content(self):
+        self.inventory_manager = InventoryManager()
+        
+        # Frame para a Treeview e a scrollbar
+        tree_frame = ttk.Frame(self)
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        self.create_widgets()
-        self.update_device_list()
+        # Treeview para exibir os dispositivos
+        self.tree = ttk.Treeview(tree_frame, columns=("ID", "Nome", "IP", "Tipo"), show='headings')
+        self.tree.heading("ID", text="ID")
+        self.tree.heading("Nome", text="Nome")
+        self.tree.heading("IP", text="Endereço IP")
+        self.tree.heading("Tipo", text="Tipo de Dispositivo")
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    def create_widgets(self):
-        """Cria os widgets da página, como a lista e os botões."""
-        list_frame = ttk.Frame(self)
-        list_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscroll=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.device_tree = ttk.Treeview(
-            list_frame,
-            columns=("hostname", "ip", "device_type"),
-            show="headings",
-            bootstyle="primary",
-        )
-        self.device_tree.heading("hostname", text="Hostname")
-        self.device_tree.heading("ip", text="Endereço IP")
-        self.device_tree.heading("device_type", text="Tipo de Dispositivo")
-        self.device_tree.pack(fill="both", expand=True)
-
+        # Frame para os botões
         button_frame = ttk.Frame(self)
-        button_frame.pack(fill="x", padx=10, pady=(0, 10))
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        add_btn = ttk.Button(button_frame, text="Adicionar", command=self.add_device, bootstyle="success")
-        add_btn.pack(side="left", padx=5)
+        # Botões
+        add_button = ttk.Button(button_frame, text="Adicionar Dispositivo", command=self.add_device, style='success.TButton')
+        add_button.pack(side=tk.LEFT, padx=5)
 
-        edit_btn = ttk.Button(button_frame, text="Editar", command=self.edit_device, bootstyle="info")
-        edit_btn.pack(side="left", padx=5)
+        edit_button = ttk.Button(button_frame, text="Editar Dispositivo", command=self.edit_device, style='info.TButton')
+        edit_button.pack(side=tk.LEFT, padx=5)
 
-        remove_btn = ttk.Button(button_frame, text="Remover", command=self.remove_device, bootstyle="danger")
-        remove_btn.pack(side="left", padx=5)
+        delete_button = ttk.Button(button_frame, text="Remover Dispositivo", command=self.delete_device, style='danger.TButton')
+        delete_button.pack(side=tk.LEFT, padx=5)
+        
+        self.refresh()
 
-    def update_device_list(self, devices=None):
-        """Atualiza a lista de dispositivos na Treeview."""
-        if devices is None:
-            devices = self.inventory_manager.get_devices()
-
-        self.device_tree.delete(*self.device_tree.get_children())
+    def refresh(self):
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        
+        devices = self.inventory_manager.get_devices()
         for device in devices:
-            self.device_tree.insert("", "end", values=(device["host"], device["ip"], device["device_type"]))
+            self.tree.insert("", "end", values=(device['id'], device['name'], device['ip'], device['type']))
 
     def add_device(self):
-        """Abre o formulário para adicionar um novo dispositivo."""
-        DeviceForm(self, self.app, title="Adicionar Dispositivo")
+        DeviceForm(self, self.app, self.refresh)
 
     def edit_device(self):
-        """Abre o formulário para editar o dispositivo selecionado."""
-        selected_item = self.device_tree.selection()
-        if not selected_item:
-            messagebox.showwarning("Aviso", "Por favor, selecione um dispositivo para editar.")
-            return
+        selected_item = self.tree.selection()
+        if selected_item:
+            device_id = self.tree.item(selected_item, "values")[0]
+            device = self.inventory_manager.get_device(device_id)
+            DeviceForm(self, self.app, self.refresh, device=device)
+        else:
+            tk.messagebox.showwarning("Aviso", "Selecione um dispositivo para editar.")
 
-        device_index = self.device_tree.index(selected_item[0])
-        device_data = self.inventory_manager.get_devices()[device_index]
-        DeviceForm(self, self.app, device=device_data, device_index=device_index, title="Editar Dispositivo")
-
-    def remove_device(self):
-        """Remove o dispositivo selecionado da lista."""
-        selected_item = self.device_tree.selection()
-        if not selected_item:
-            messagebox.showwarning("Aviso", "Por favor, selecione um dispositivo para remover.")
-            return
-
-        if messagebox.askyesno("Confirmar", "Tem a certeza que deseja remover este dispositivo?"):
-            device_index = self.device_tree.index(selected_item[0])
-            self.inventory_manager.remove_device(device_index)
-            self.update_device_list()
-            self.app.update_device_list()
-
-    def get_selected_device(self):
-        """Retorna os dados do dispositivo selecionado na Treeview."""
-        selected_item = self.device_tree.selection()
-        if not selected_item:
-            return None
-        device_index = self.device_tree.index(selected_item[0])
-        return self.inventory_manager.get_devices()[device_index]
+    def delete_device(self):
+        selected_item = self.tree.selection()
+        if selected_item:
+            device_id = self.tree.item(selected_item, "values")[0]
+            if tk.messagebox.askyesno("Confirmar", "Tem a certeza que deseja remover este dispositivo?"):
+                self.inventory_manager.delete_device(device_id)
+                self.refresh()
+        else:
+            tk.messagebox.showwarning("Aviso", "Selecione um dispositivo para remover.")
