@@ -1,52 +1,78 @@
-# ui/compliance_page.py
-import tkinter as tk
-from tkinter import ttk
-from logic.compliance_manager import run_compliance_audit
+"""
+Página da interface do utilizador para a gestão de regras de conformidade.
+"""
+from tkinter import ttk, messagebox
+from logic.compliance_manager import ComplianceManager, check_compliance
+# Removi 'tkinter as tk' porque não era usado
 
 
 class CompliancePage(ttk.Frame):
-    def __init__(self, parent, controller):
+    """Frame para a gestão e verificação de conformidade."""
+
+    def __init__(self, parent, app):
         super().__init__(parent)
-        self.controller = controller
+        self.app = app
+        self.compliance_manager = ComplianceManager()
+        self.create_widgets()
+        self.load_rules()
 
-        # --- Frame Principal ---
-        main_frame = ttk.LabelFrame(self, text="Auditoria de Conformidade de Rede")
-        main_frame.pack(padx=20, pady=20, fill="both", expand=True)
-        main_frame.grid_rowconfigure(1, weight=1)
-        main_frame.grid_columnconfigure(0, weight=1)
+    def create_widgets(self):
+        """Cria os widgets da página."""
+        main_frame = ttk.Frame(self, padding=10)
+        main_frame.pack(fill="both", expand=True)
 
-        # --- Frame de Controlo ---
-        control_frame = ttk.Frame(main_frame)
-        control_frame.grid(row=0, column=0, pady=10)
+        # Frame da lista de regras
+        list_frame = ttk.Labelframe(main_frame, text="Regras de Conformidade")
+        list_frame.pack(fill="both", expand=True)
 
-        self.run_button = ttk.Button(
-            control_frame,
-            text="Executar Auditoria em Todos os Dispositivos",
-            style="primary",
-            command=lambda: run_compliance_audit(self.controller),
+        self.rules_tree = ttk.Treeview(
+            list_frame, columns=("name", "description"), show="headings"
         )
-        self.run_button.pack()
+        self.rules_tree.heading("name", text="Nome da Regra")
+        self.rules_tree.heading("description", text="Descrição")
+        self.rules_tree.pack(fill="both", expand=True, pady=5)
 
-        # --- Tabela de Resultados ---
-        results_frame = ttk.Frame(main_frame)
-        results_frame.grid(row=1, column=0, sticky="nsew")
-        results_frame.grid_rowconfigure(0, weight=1)
-        results_frame.grid_columnconfigure(0, weight=1)
+        # Botões
+        btn_frame = ttk.Frame(list_frame)
+        btn_frame.pack(fill="x")
 
-        cols = ("Dispositivo", "Regra", "Estado", "Detalhes")
-        self.tree = ttk.Treeview(results_frame, columns=cols, show="headings")
-        for col in cols:
-            self.tree.heading(col, text=col)
-
-        self.tree.column("Dispositivo", width=150)
-        self.tree.column("Regra", width=200)
-        self.tree.column("Estado", width=100, anchor="center")
-        self.tree.column("Detalhes", width=300)
-
-        self.tree.pack(side="left", fill="both", expand=True)
-
-        scrollbar = ttk.Scrollbar(
-            results_frame, orient="vertical", command=self.tree.yview
+        check_btn = ttk.Button(
+            btn_frame,
+            text="Verificar Conformidade",
+            command=self.run_check,
+            bootstyle="primary",
         )
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
+        check_btn.pack(side="left", padx=5)
+        # Futuramente, adicionar botões para Adicionar/Editar/Remover regras
+
+    def load_rules(self):
+        """Carrega as regras de conformidade na lista."""
+        self.rules_tree.delete(*self.rules_tree.get_children())
+        for rule in self.compliance_manager.get_rules():
+            self.rules_tree.insert(
+                "", "end", values=(rule["name"], rule["description"])
+            )
+
+    def run_check(self):
+        """
+        Executa a verificação de conformidade para a regra e dispositivo selecionados.
+        """
+        device = self.app.get_selected_device()
+        if not device:
+            messagebox.showerror("Erro", "Nenhum dispositivo selecionado.")
+            return
+
+        selected_item = self.rules_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Erro", "Nenhuma regra selecionada.")
+            return
+
+        rule_index = self.rules_tree.index(selected_item[0])
+        rule = self.compliance_manager.get_rules()[rule_index]
+
+        # Chama a função correta
+        check_compliance(self.app, device, rule)
+
+    def refresh(self):
+        """Atualiza a lista de regras quando a página é exibida."""
+        self.load_rules()

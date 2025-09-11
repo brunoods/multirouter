@@ -1,51 +1,74 @@
-# ui/interfaces_page.py
-import tkinter as tk
-from tkinter import ttk
-from logic.configuration import configure_interface
+"""
+Página da interface do utilizador para visualizar e gerir interfaces de rede.
+"""
+from tkinter import ttk, messagebox
+from logic.interface_manager import get_device_interfaces
 
 
 class InterfacesPage(ttk.Frame):
-    def __init__(self, parent, controller):
+    """Frame que exibe a lista de interfaces do dispositivo selecionado."""
+
+    def __init__(self, parent, app):
         super().__init__(parent)
-        self.controller = controller
-        self.selected_interface_name = None  # Guarda o nome da interface selecionada
+        self.app = app
+        self.create_widgets()
 
-        # --- Widgets de Configuração ---
-        config_frame = ttk.LabelFrame(self, text="3. Configurar Interface Selecionada")
-        config_frame.pack(padx=20, pady=20, fill="x")
+    def create_widgets(self):
+        """Cria os widgets da página."""
+        main_frame = ttk.Frame(self, padding=10)
+        main_frame.pack(fill="both", expand=True)
 
-        self.if_config_label = ttk.Label(
-            config_frame,
-            text="Interface: (Selecione na Visão Geral)",
-            font=("Segoe UI", 10, "bold"),
+        # Botão de refresh
+        refresh_btn = ttk.Button(
+            main_frame, text="Atualizar Lista de Interfaces", command=self.refresh
         )
-        self.if_config_label.grid(row=0, columnspan=2, sticky="w", pady=(0, 10), padx=5)
+        refresh_btn.pack(pady=(0, 10))
 
-        ttk.Label(config_frame, text="Descrição:").grid(
-            row=1, column=0, sticky="w", pady=2, padx=5
+        # Treeview para exibir as interfaces
+        self.interfaces_tree = ttk.Treeview(
+            main_frame,
+            columns=("interface", "ip_address", "status", "protocol"),
+            show="headings",
         )
-        self.entry_if_desc = ttk.Entry(config_frame, width=30)
-        self.entry_if_desc.grid(row=1, column=1, pady=2, padx=5)
+        self.interfaces_tree.heading("interface", text="Interface")
+        self.interfaces_tree.heading("ip_address", text="Endereço IP")
+        self.interfaces_tree.heading("status", text="Status")
+        self.interfaces_tree.heading("protocol", text="Protocolo")
 
-        self.vlan_access_label = ttk.Label(config_frame, text="VLAN de Acesso:")
-        self.vlan_access_label.grid(row=2, column=0, sticky="w", pady=2, padx=5)
-        self.vlan_combobox = ttk.Combobox(config_frame, width=27, state="readonly")
-        self.vlan_combobox.grid(row=2, column=1, pady=2, padx=5)
+        # Ajustar a largura das colunas
+        self.interfaces_tree.column("interface", width=150)
+        self.interfaces_tree.column("ip_address", width=150)
+        self.interfaces_tree.column("status", width=100, anchor="center")
+        self.interfaces_tree.column("protocol", width=100, anchor="center")
 
-        status_frame = ttk.Frame(config_frame)
-        status_frame.grid(row=4, columnspan=2, pady=5, sticky="w", padx=5)
-        self.if_status_var = tk.StringVar(value="off")
-        ttk.Radiobutton(
-            status_frame, text="Habilitada", variable=self.if_status_var, value="on"
-        ).pack(side="left")
-        ttk.Radiobutton(
-            status_frame, text="Desabilitada", variable=self.if_status_var, value="off"
-        ).pack(side="left", padx=10)
+        self.interfaces_tree.pack(fill="both", expand=True)
 
-        # O botão agora chama a função de lógica, passando a instância principal do app
-        ttk.Button(
-            config_frame,
-            text="Aplicar Config. da Interface",
-            style="primary",
-            command=lambda: configure_interface(self.controller),
-        ).grid(row=5, columnspan=2, pady=10)
+    def refresh(self):
+        """Busca e exibe as interfaces do dispositivo selecionado."""
+        # Limpa a lista atual
+        for item in self.interfaces_tree.get_children():
+            self.interfaces_tree.delete(item)
+
+        device = self.app.get_selected_device()
+        if not device:
+            messagebox.showinfo("Aviso", "Por favor, selecione um dispositivo na página de Inventário.")
+            return
+
+        interfaces = get_device_interfaces(device)
+
+        if not interfaces:
+            messagebox.showinfo("Informação", "Nenhuma interface encontrada ou ocorreu um erro.")
+            return
+
+        # Preenche a lista com as novas interfaces
+        for interface_data in interfaces:
+            self.interfaces_tree.insert(
+                "",
+                "end",
+                values=(
+                    interface_data.get("interface", "N/A"),
+                    interface_data.get("ip_address", "N/A"),
+                    interface_data.get("status", "N/A"),
+                    interface_data.get("protocol", "N/A"),
+                ),
+            )

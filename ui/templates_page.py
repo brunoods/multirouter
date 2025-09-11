@@ -1,169 +1,130 @@
-# ui/templates_page.py
-import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
-from logic.templates_manager import (
-    load_templates,
-    save_single_template,
-    delete_template,
-    find_variables_in_template,
-    render_template,
-)
-from logic.configuration import send_commands
-from ui.template_form import TemplateForm
+"""
+Página da interface do utilizador para gerir e aplicar templates de configuração.
+"""
+from tkinter import ttk, messagebox, simpledialog
+from ttkbootstrap.scrolled import ScrolledText
+from logic.templates_manager import TemplatesManager, apply_template_to_device
+from .template_form import TemplateForm
+import re
 
 
 class TemplatesPage(ttk.Frame):
-    def __init__(self, parent, controller):
+    """Frame para a gestão de templates."""
+
+    def __init__(self, parent, app):
         super().__init__(parent)
-        self.controller = controller
+        self.app = app
+        self.templates_manager = TemplatesManager()
+        self.create_widgets()
+        self.load_templates()
 
-        # --- Estrutura Principal ---
-        self.grid_columnconfigure(1, weight=3)
-        self.grid_rowconfigure(0, weight=1)
+    def create_widgets(self):
+        """Cria os widgets da página."""
+        # Frame principal
+        main_frame = ttk.Frame(self, padding=10)
+        main_frame.pack(fill="both", expand=True)
 
-        # --- Painel Esquerdo: Lista de Templates e Ações ---
-        left_frame = ttk.Frame(self)
-        left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-        left_frame.grid_rowconfigure(1, weight=1)
+        # Frame da lista de templates
+        list_frame = ttk.Labelframe(main_frame, text="Templates Guardados")
+        list_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        ttk.Label(
-            left_frame, text="Templates Salvos", font=("Segoe UI", 11, "bold")
-        ).grid(row=0, column=0, sticky="w")
-
-        self.template_list = tk.Listbox(left_frame, height=15)
-        self.template_list.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=5)
-        self.template_list.bind("<<ListboxSelect>>", self.on_template_select)
-
-        ttk.Button(
-            left_frame, text="Novo", style="primary", command=self.new_template
-        ).grid(row=2, column=0, sticky="ew", pady=5, padx=(0, 2))
-        ttk.Button(
-            left_frame,
-            text="Remover",
-            style="danger",
-            command=self.delete_selected_template,
-        ).grid(row=2, column=1, sticky="ew", pady=5, padx=(2, 0))
-
-        # --- Painel Direito: Editor e Ações do Template ---
-        right_frame = ttk.Frame(self)
-        right_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
-        right_frame.grid_rowconfigure(1, weight=1)
-        right_frame.grid_columnconfigure(0, weight=1)
-
-        editor_header = ttk.Frame(right_frame)
-        editor_header.grid(row=0, column=0, columnspan=2, sticky="ew")
-        ttk.Label(editor_header, text="Nome do Template:").pack(side="left")
-        self.template_name_entry = ttk.Entry(editor_header, width=40)
-        self.template_name_entry.pack(side="left", padx=5)
-
-        self.editor_text = scrolledtext.ScrolledText(
-            right_frame, wrap=tk.WORD, font=("Consolas", 10)
+        self.template_listbox = ttk.Treeview(
+            list_frame, columns=("name",), show="headings"
         )
-        self.editor_text.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=5)
+        self.template_listbox.heading("name", text="Nome do Template")
+        self.template_listbox.pack(fill="both", expand=True)
+        self.template_listbox.bind("<<TreeviewSelect>>", self.on_template_select)
 
-        ttk.Button(
-            right_frame,
-            text="Salvar Template",
-            style="primary",
-            command=self.save_current_template,
-        ).grid(row=2, column=0, sticky="e", pady=10)
-        ttk.Button(
-            right_frame,
-            text="Aplicar Template ao Dispositivo...",
-            style="primary",
-            command=self.apply_template,
-        ).grid(row=2, column=1, sticky="w", pady=10, padx=10)
+        # Frame de botões para a lista
+        list_btn_frame = ttk.Frame(list_frame)
+        list_btn_frame.pack(fill="x", pady=5)
+        
+        add_btn = ttk.Button(list_btn_frame, text="Adicionar", command=self.add_template, bootstyle="success")
+        add_btn.pack(side="left", padx=5)
 
-        self.populate_template_list()
+        edit_btn = ttk.Button(list_btn_frame, text="Editar", command=self.edit_template, bootstyle="info")
+        edit_btn.pack(side="left", padx=5)
 
-    def populate_template_list(self):
-        self.templates = load_templates()
-        self.template_list.delete(0, tk.END)
-        for template in self.templates:
-            self.template_list.insert(tk.END, template["name"])
+        delete_btn = ttk.Button(list_btn_frame, text="Apagar", command=self.delete_template, bootstyle="danger")
+        delete_btn.pack(side="left", padx=5)
+        
+        # Frame do editor de template
+        editor_frame = ttk.Labelframe(main_frame, text="Conteúdo do Template")
+        editor_frame.pack(side="left", fill="both", expand=True)
+        
+        self.template_content = ScrolledText(editor_frame, wrap="word", height=15)
+        self.template_content.pack(fill="both", expand=True)
+        
+        # Botão para aplicar o template
+        apply_btn = ttk.Button(main_frame, text="Aplicar Template ao Dispositivo", command=self.apply_template)
+        apply_btn.pack(pady=10, fill="x")
+
+    def load_templates(self):
+        """Carrega os templates para a lista."""
+        self.template_listbox.delete(*self.template_listbox.get_children())
+        for template in self.templates_manager.get_templates():
+            self.template_listbox.insert("", "end", values=(template["name"],))
 
     def on_template_select(self, event):
-        selection_indices = self.template_list.curselection()
-        if not selection_indices:
+        """Exibe o conteúdo do template selecionado."""
+        selected_item = self.template_listbox.selection()
+        if not selected_item:
+            return
+            
+        index = self.template_listbox.index(selected_item[0])
+        template = self.templates_manager.get_templates()[index]
+        self.template_content.delete("1.0", "end")
+        self.template_content.insert("1.0", template["content"])
+
+    def add_template(self):
+        """Abre o formulário para adicionar um novo template."""
+        TemplateForm(self, self.app, title="Adicionar Template")
+
+    def edit_template(self):
+        """Abre o formulário para editar o template selecionado."""
+        selected_item = self.template_listbox.selection()
+        if not selected_item:
+            messagebox.showwarning("Aviso", "Selecione um template para editar.")
             return
 
-        selected_index = selection_indices[0]
-        selected_template = self.templates[selected_index]
+        index = self.template_listbox.index(selected_item[0])
+        template = self.templates_manager.get_templates()[index]
+        TemplateForm(self, self.app, template=template, template_index=index, title="Editar Template")
 
-        self.template_name_entry.delete(0, tk.END)
-        self.template_name_entry.insert(0, selected_template["name"])
-
-        self.editor_text.delete("1.0", tk.END)
-        self.editor_text.insert("1.0", selected_template["content"])
-
-    def new_template(self):
-        self.template_list.selection_clear(0, tk.END)
-        self.template_name_entry.delete(0, tk.END)
-        self.editor_text.delete("1.0", tk.END)
-        self.template_name_entry.focus()
-
-    def save_current_template(self):
-        name = self.template_name_entry.get().strip()
-        content = self.editor_text.get("1.0", "end-1c").strip()
-        if not name or not content:
-            messagebox.showwarning(
-                "Dados Incompletos",
-                "O nome e o conteúdo do template não podem estar vazios.",
-                parent=self,
-            )
+    def delete_template(self):
+        """Apaga o template selecionado."""
+        selected_item = self.template_listbox.selection()
+        if not selected_item:
+            messagebox.showwarning("Aviso", "Selecione um template para apagar.")
             return
-
-        save_single_template(name, content)
-        self.populate_template_list()
-        messagebox.showinfo(
-            "Sucesso", f"Template '{name}' salvo com sucesso.", parent=self
-        )
-
-    def delete_selected_template(self):
-        selection_indices = self.template_list.curselection()
-        if not selection_indices:
-            messagebox.showwarning(
-                "Nenhuma Seleção", "Selecione um template para remover.", parent=self
-            )
-            return
-
-        selected_template_name = self.template_list.get(selection_indices[0])
-        if messagebox.askyesno(
-            "Confirmar Remoção",
-            f"Tem a certeza que deseja remover o template '{selected_template_name}'?",
-            parent=self,
-        ):
-            delete_template(selected_template_name)
-            self.populate_template_list()
-            self.new_template()
+        
+        if messagebox.askyesno("Confirmar", "Tem a certeza que deseja apagar este template?"):
+            index = self.template_listbox.index(selected_item[0])
+            self.templates_manager.delete_template(index)
+            self.load_templates()
+            self.template_content.delete("1.0", "end")
 
     def apply_template(self):
-        content = self.editor_text.get("1.0", "end-1c")
-        variables = find_variables_in_template(content)
-
-        if not variables:
-            # Se não houver variáveis, aplica diretamente
-            commands = [
-                cmd
-                for cmd in content.splitlines()
-                if cmd.strip() and not cmd.strip().startswith("!")
-            ]
-            send_commands(
-                self.controller,
-                commands,
-                "Template sem variáveis aplicado com sucesso.",
-            )
+        """Aplica o template selecionado ao dispositivo selecionado."""
+        device = self.app.get_selected_device()
+        if not device:
+            messagebox.showerror("Erro", "Nenhum dispositivo selecionado.")
             return
 
-        # Abre o formulário dinâmico para preencher as variáveis
-        form = TemplateForm(self, variables)
-        self.wait_window(form)
+        content = self.template_content.get("1.0", "end-1c")
+        if not content:
+            messagebox.showerror("Erro", "O conteúdo do template está vazio.")
+            return
 
-        if form.result:
-            rendered_content = render_template(content, form.result)
-            commands = [
-                cmd
-                for cmd in rendered_content.splitlines()
-                if cmd.strip() and not cmd.strip().startswith("!")
-            ]
-            send_commands(self.controller, commands, "Template aplicado com sucesso.")
+        # Encontra todas as variáveis no formato {{variavel}}
+        variables_needed = set(re.findall(r"\{\{(.*?)\}\}", content))
+        
+        variables_values = {}
+        for var in variables_needed:
+            value = simpledialog.askstring("Input", f"Insira o valor para a variável '{var}':", parent=self)
+            if value is None: # O utilizador cancelou
+                return
+            variables_values[var] = value
+        
+        # Chama a função correta do gestor de templates
+        apply_template_to_device(device, content, variables_values)

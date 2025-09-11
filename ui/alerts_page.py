@@ -1,147 +1,92 @@
-# ui/alerts_page.py
-import tkinter as tk
+"""
+Página da interface do utilizador para a gestão de alertas.
+"""
 from tkinter import ttk, messagebox
-from logic.alerts_manager import load_alert_rules, add_alert_rule, remove_alert_rule
-
+from logic.alerts_manager import AlertsManager
+# Removi a importação não utilizada de 'tkinter as tk'
 
 class AlertsPage(ttk.Frame):
-    def __init__(self, parent, controller):
+    """Frame para a gestão e visualização de alertas."""
+
+    def __init__(self, parent, app):
         super().__init__(parent)
-        self.controller = controller
+        self.app = app
+        self.alerts_manager = AlertsManager()
+        self.create_widgets()
+        self.load_alerts()
 
-        main_frame = ttk.Frame(self)
+    def create_widgets(self):
+        """Cria os widgets da página de alertas."""
+        main_frame = ttk.Frame(self, padding=10)
         main_frame.pack(fill="both", expand=True)
-        main_frame.grid_columnconfigure(0, weight=1)
-        main_frame.grid_rowconfigure(1, weight=1)
 
-        creation_frame = ttk.LabelFrame(
-            main_frame, text="Nova Regra de Alerta: Interface Offline"
+        # Frame da lista de alertas
+        list_frame = ttk.Labelframe(main_frame, text="Alertas Configurados")
+        list_frame.pack(fill="both", expand=True)
+
+        self.alerts_tree = ttk.Treeview(
+            list_frame,
+            columns=("name", "type", "device"),
+            show="headings"
         )
-        creation_frame.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
+        self.alerts_tree.heading("name", text="Nome do Alerta")
+        self.alerts_tree.heading("type", text="Tipo")
+        self.alerts_tree.heading("device", text="Dispositivo")
+        self.alerts_tree.pack(fill="both", expand=True, pady=5)
 
-        ttk.Label(creation_frame, text="Dispositivo:").grid(
-            row=0, column=0, sticky="w", padx=5, pady=5
+        # Botões
+        btn_frame = ttk.Frame(list_frame)
+        btn_frame.pack(fill="x")
+
+        # No futuro, podemos adicionar aqui formulários para
+        # criar e editar alertas de forma mais detalhada.
+        add_btn = ttk.Button(
+            btn_frame, text="Adicionar (Exemplo)",
+            command=self.add_alert, bootstyle="success"
         )
-        self.device_combobox = ttk.Combobox(creation_frame, state="readonly", width=25)
-        self.device_combobox.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-        self.device_combobox.bind("<<ComboboxSelected>>", self.on_device_select)
+        add_btn.pack(side="left", padx=5)
 
-        ttk.Label(creation_frame, text="Interface:").grid(
-            row=1, column=0, sticky="w", padx=5, pady=5
+        remove_btn = ttk.Button(
+            btn_frame, text="Remover",
+            command=self.remove_alert, bootstyle="danger"
         )
-        self.interface_combobox = ttk.Combobox(
-            creation_frame, state="readonly", width=25
-        )
-        self.interface_combobox.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
+        remove_btn.pack(side="left", padx=5)
 
-        ttk.Button(
-            creation_frame,
-            text="Adicionar Regra",
-            style="primary",
-            command=self.save_rule,
-        ).grid(row=2, column=0, columnspan=2, pady=10)
-
-        rules_frame = ttk.LabelFrame(main_frame, text="Regras de Alerta Ativas")
-        rules_frame.grid(row=1, column=0, padx=20, pady=(0, 10), sticky="nsew")
-        rules_frame.grid_rowconfigure(0, weight=1)
-        rules_frame.grid_columnconfigure(0, weight=1)
-
-        cols = ("Dispositivo", "Métrica", "Detalhes")
-        self.tree = ttk.Treeview(
-            rules_frame, columns=cols, show="headings", selectmode="browse"
-        )
-        for col in cols:
-            self.tree.heading(col, text=col)
-        self.tree.pack(side="left", fill="both", expand=True)
-
-        scrollbar = ttk.Scrollbar(
-            rules_frame, orient="vertical", command=self.tree.yview
-        )
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-
-        ttk.Button(
-            main_frame,
-            text="Remover Regra Selecionada",
-            style="danger",
-            command=self.delete_rule,
-        ).grid(row=2, column=0, pady=10)
-
-    def on_device_select(self, event=None):
-        selected_device_name = self.device_combobox.get()
-        if not selected_device_name:
-            return
-
-        # A lógica para obter as interfaces de um dispositivo específico precisaria
-        # de uma conexão. Para simplificar, usaremos as últimas interfaces lidas.
-        overview_page = self.controller.frames[self.controller.pages["OverviewPage"]]
-        interfaces = [
-            overview_page.interfaces_tree.item(i, "values")[0]
-            for i in overview_page.interfaces_tree.get_children()
-        ]
-        self.interface_combobox["values"] = interfaces
-        if interfaces:
-            self.interface_combobox.set(interfaces[0])
-
-    def save_rule(self):
-        selected_device_name = self.device_combobox.get()
-        selected_interface = self.interface_combobox.get()
-
-        if not selected_device_name or not selected_interface:
-            messagebox.showwarning(
-                "Dados Incompletos",
-                "Por favor, selecione um dispositivo e uma interface.",
-                parent=self,
+    def load_alerts(self):
+        """Carrega os alertas do gestor e exibe-os na lista."""
+        self.alerts_tree.delete(*self.alerts_tree.get_children())
+        for alert in self.alerts_manager.get_alerts():
+            self.alerts_tree.insert(
+                "", "end",
+                values=(alert["name"], alert["type"], alert["device"])
             )
-            return
 
-        device = next(
-            (d for d in self.controller.inventory if d["name"] == selected_device_name),
-            None,
-        )
-        if not device:
-            return
-
-        rule = {
-            "device_id": device["id"],
-            "device_name": device["name"],
-            "metric": "Interface Status",
-            "interface_name": selected_interface,
-            "condition": "not equals",
-            "value": "up",  # Queremos ser alertados se o estado NÃO for 'up'
+    def add_alert(self):
+        """Adiciona um novo alerta de exemplo."""
+        # Esta é uma implementação simplificada.
+        # O ideal seria abrir um formulário como na página de inventário.
+        new_alert = {
+            "name": "Alerta de Interface Down",
+            "type": "Status da Interface",
+            "device": "192.168.1.1",
+            "condition": "status != up"
         }
-        add_alert_rule(rule)
-        self.populate_rules()
+        self.alerts_manager.add_alert(new_alert)
+        self.load_alerts()
+        messagebox.showinfo("Sucesso", "Alerta de exemplo adicionado.")
 
-    def delete_rule(self):
-        selected_iid = self.tree.focus()
-        if not selected_iid:
-            messagebox.showwarning(
-                "Nenhuma Seleção",
-                "Por favor, selecione uma regra para remover.",
-                parent=self,
-            )
+    def remove_alert(self):
+        """Remove o alerta selecionado."""
+        selected_item = self.alerts_tree.selection()
+        if not selected_item:
+            messagebox.showwarning("Aviso", "Selecione um alerta para remover.")
             return
 
-        if messagebox.askyesno(
-            "Confirmar Remoção",
-            "Tem a certeza que deseja remover esta regra de alerta?",
-            parent=self,
-        ):
-            remove_alert_rule(int(selected_iid))
-            self.populate_rules()
+        if messagebox.askyesno("Confirmar", "Tem a certeza que deseja remover este alerta?"):
+            index = self.alerts_tree.index(selected_item[0])
+            self.alerts_manager.delete_alert(index)
+            self.load_alerts()
 
-    def populate_rules(self):
-        """Carrega e exibe as regras de alerta salvas."""
-        for i in self.tree.get_children():
-            self.tree.delete(i)
-
-        rules = load_alert_rules()
-        for rule in rules:
-            details = f"Interface: {rule['interface_name']}, Condição: Estado != '{rule['value']}'"
-            self.tree.insert(
-                "",
-                "end",
-                iid=rule["id"],
-                values=(rule["device_name"], rule["metric"], details),
-            )
+    def refresh(self):
+        """Atualiza a lista de alertas quando a página é mostrada."""
+        self.load_alerts()
