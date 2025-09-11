@@ -1,45 +1,77 @@
-# ui/diagnostics_page.py
-import tkinter as tk
-from tkinter import ttk, scrolledtext
-from logic.diagnostics import run_diagnostic_command
+"""
+Página da interface do utilizador para as ferramentas de diagnóstico.
+"""
+from tkinter import ttk, messagebox
+from ttkbootstrap.scrolled import ScrolledText
+from logic.diagnostics import run_ping, run_traceroute
+
 
 class DiagnosticsPage(ttk.Frame):
-    def __init__(self, parent, controller):
+    """Frame que contém os widgets para ping e traceroute."""
+
+    def __init__(self, parent, app):
         super().__init__(parent)
-        self.controller = controller
+        self.app = app
+        self.create_widgets()
 
-        # --- Frame Principal ---
-        main_frame = ttk.LabelFrame(self, text="Ferramentas de Diagnóstico de Rede")
-        main_frame.pack(padx=20, pady=20, fill="both", expand=True)
-        main_frame.grid_rowconfigure(2, weight=1)
-        main_frame.grid_columnconfigure(0, weight=1)
+    def create_widgets(self):
+        """Cria os widgets da página."""
+        # Frame de input
+        input_frame = ttk.Frame(self)
+        input_frame.pack(fill="x", padx=10, pady=10)
 
-        # --- Frame de Controlo ---
-        control_frame = ttk.Frame(main_frame)
-        control_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        ip_label = ttk.Label(input_frame, text="Endereço IP:")
+        ip_label.pack(side="left", padx=(0, 5))
 
-        ttk.Label(control_frame, text="Endereço IP de Destino:").pack(side="left", padx=(0, 10))
-        self.target_ip_entry = ttk.Entry(control_frame, width=30)
-        self.target_ip_entry.pack(side="left", padx=10, fill="x", expand=True)
-        self.target_ip_entry.insert(0, "8.8.8.8")
+        self.ip_entry = ttk.Entry(input_frame, width=30)
+        self.ip_entry.pack(side="left", padx=5)
 
-        # --- Frame de Botões ---
-        button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=1, column=0, pady=10)
+        ping_btn = ttk.Button(input_frame, text="Ping", command=self.do_ping)
+        ping_btn.pack(side="left", padx=5)
 
-        self.ping_button = ttk.Button(button_frame, text="Executar Ping", 
-                                    style="primary",    command=lambda: run_diagnostic_command(self.controller, 'ping'))
-        self.ping_button.pack(side="left", padx=10)
+        traceroute_btn = ttk.Button(
+            input_frame, text="Traceroute", command=self.do_traceroute
+        )
+        traceroute_btn.pack(side="left", padx=5)
 
-        self.trace_button = ttk.Button(button_frame, text="Executar Traceroute", 
-                                    style="primary",     command=lambda: run_diagnostic_command(self.controller, 'traceroute'))
-        self.trace_button.pack(side="left", padx=10)
+        # Frame para o resultado
+        output_frame = ttk.Labelframe(self, text="Resultado", padding=10)
+        output_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        # --- Frame de Resultados ---
-        results_frame = ttk.LabelFrame(main_frame, text="Resultados")
-        results_frame.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
-        results_frame.grid_rowconfigure(0, weight=1)
-        results_frame.grid_columnconfigure(0, weight=1)
-        
-        self.results_text = scrolledtext.ScrolledText(results_frame, wrap=tk.WORD, font=("Consolas", 9), state="disabled", background="#ffffff")
-        self.results_text.pack(fill="both", expand=True, padx=5, pady=5)
+        self.output_text = ScrolledText(output_frame, wrap="word", state="disabled")
+        self.output_text.pack(fill="both", expand=True)
+
+    def do_ping(self):
+        """Executa a função de ping."""
+        ip = self.ip_entry.get()
+        if not ip:
+            messagebox.showwarning("IP em falta", "Por favor, insira um endereço IP.")
+            return
+
+        self.clear_output()
+        self.update_output(f"A executar ping para {ip}...\n\n")
+        run_ping(ip, self.update_output)
+
+    def do_traceroute(self):
+        """Executa a função de traceroute."""
+        ip = self.ip_entry.get()
+        if not ip:
+            messagebox.showwarning("IP em falta", "Por favor, insira um endereço IP.")
+            return
+
+        self.clear_output()
+        self.update_output(f"A executar traceroute para {ip}...\n\n")
+        run_traceroute(ip, self.update_output)
+
+    def update_output(self, data):
+        """Atualiza a área de texto com o resultado."""
+        self.output_text.config(state="normal")
+        self.output_text.insert("end", data)
+        self.output_text.config(state="disabled")
+        self.output_text.see("end")
+
+    def clear_output(self):
+        """Limpa a área de texto do resultado."""
+        self.output_text.config(state="normal")
+        self.output_text.delete("1.0", "end")
+        self.output_text.config(state="disabled")

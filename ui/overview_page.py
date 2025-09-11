@@ -1,62 +1,105 @@
-# ui/overview_page.py
-import tkinter as tk
+"""
+Página de Visão Geral (Dashboard) da aplicação.
+"""
+
 from tkinter import ttk
-# A lógica de monitorização é importada e chamada pelo app.py, não diretamente aqui
+from ttkbootstrap.scrolled import ScrolledText
+
 
 class OverviewPage(ttk.Frame):
-    """Página de Visão Geral com todas as tabelas de resumo e controlos de monitorização."""
-    def __init__(self, parent, controller):
+    """Frame que exibe o dashboard principal da aplicação."""
+
+    def __init__(self, parent, app):
+        """
+        Inicializa a página de visão geral.
+
+        Args:
+            parent: O widget pai.
+            app: A instância principal da aplicação.
+        """
         super().__init__(parent)
-        
-        self.controller = controller
+        self.app = app
 
-        # --- Frame de Controlo Superior ---
-        top_frame = ttk.Frame(self)
-        top_frame.pack(fill="x", padx=7, pady=5)
-        
-        # Informações Gerais (Esquerda)
-        info_frame = ttk.Frame(top_frame)
-        info_frame.pack(side="left")
-        ttk.Label(info_frame, text="Hostname:", font=('Segoe UI', 10, 'bold')).pack(side="left")
-        self.hostname_value = ttk.Label(info_frame, text="N/A", font=('Segoe UI', 10))
-        self.hostname_value.pack(side="left", padx=5)
+        self.create_widgets()
 
-        # Controlo de Monitorização (Direita)
-        monitor_controls_frame = ttk.Frame(top_frame)
-        monitor_controls_frame.pack(side="right")
-        ttk.Label(monitor_controls_frame, text="Intervalo (s):").pack(side="left", padx=(10, 2))
-        self.interval_entry = ttk.Entry(monitor_controls_frame, width=5)
-        self.interval_entry.pack(side="left")
-        self.interval_entry.insert(0, "300") # Padrão de 5 minutos
-        
-        # O comando deste botão será definido no app.py
-        self.monitor_button = ttk.Button(monitor_controls_frame, text="Iniciar Monitorização",  style="primary" )
-        self.monitor_button.pack(side="left", padx=10)
+    def create_widgets(self):
+        """Cria os widgets da página."""
+        # Frame para o status
+        status_frame = ttk.Labelframe(self, text="Status do Dispositivo", padding=10)
+        status_frame.pack(fill="x", padx=10, pady=10)
 
+        self.status_label = ttk.Label(
+            status_frame, text="Nenhum dispositivo selecionado"
+        )
+        self.status_label.pack(side="left", padx=5)
 
-        # Notebook para as tabelas de resumo
-        summary_notebook = ttk.Notebook(self)
-        summary_notebook.pack(fill="both", expand=True, padx=5, pady=5)
-        
-        # Abas e tabelas
-        self.interfaces_tree = self.create_treeview_tab(summary_notebook, "Interfaces", ("Interface", "IP", "Status", "Descrição", "VLAN Access"))
-        self.vlans_tree = self.create_treeview_tab(summary_notebook, "VLANs", ("ID", "Nome", "Status"))
-        self.rotas_tree = self.create_treeview_tab(summary_notebook, "Rotas", ("Destino", "Próximo Salto"))
-        self.acls_tree = self.create_treeview_tab(summary_notebook, "ACLs", ("Tipo", "Nome/ID"))
+        self.connection_status_label = ttk.Label(
+            status_frame, text="Não conectado", bootstyle="danger"
+        )
+        self.connection_status_label.pack(side="left", padx=5)
 
-    def create_treeview_tab(self, notebook, text, columns):
-        """Cria uma aba com uma tabela (Treeview) dentro e retorna a tabela."""
-        frame = ttk.Frame(notebook)
-        notebook.add(frame, text=text)
-        
-        tree = ttk.Treeview(frame, columns=columns, show="headings")
-        for col in columns:
-            tree.heading(col, text=col)
-            tree.column(col, width=150, anchor="w")
-        tree.pack(side="left", fill="both", expand=True)
+        # Frame para a exibição da configuração
+        config_frame = ttk.Labelframe(
+            self, text="Visualizador de Configuração", padding=10
+        )
+        config_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        
-        return tree
+        self.config_text = ScrolledText(
+            config_frame, wrap="word", height=20, state="disabled"
+        )
+        self.config_text.pack(fill="both", expand=True)
+
+        # Frame para o monitoramento
+        monitoring_frame = ttk.Labelframe(self, text="Monitorização", padding=10)
+        monitoring_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+        self.monitoring_label = ttk.Label(
+            monitoring_frame, text="A monitorização não está ativa."
+        )
+        self.monitoring_label.pack()
+
+    def update_connection_status_label(self, status):
+        """
+        Atualiza a label de status da conexão.
+
+        Args:
+            status (str): O novo status da conexão (ex: "Conectado").
+        """
+        self.connection_status_label.config(text=status)
+        if status == "Conectado":
+            self.connection_status_label.config(bootstyle="success")
+        else:
+            self.connection_status_label.config(bootstyle="danger")
+
+    def update_config_display(self, config):
+        """
+        Exibe a configuração do dispositivo no widget de texto.
+
+        Args:
+            config (str): A configuração a ser exibida.
+        """
+        self.config_text.config(state="normal")
+        self.config_text.delete("1.0", "end")
+        self.config_text.insert("1.0", config)
+        self.config_text.config(state="disabled")
+
+    def update_monitoring_status(self, status_list):
+        """
+        Atualiza a área de monitorização com o status dos dispositivos.
+
+        Args:
+            status_list (list): Uma lista de strings com o status de cada dispositivo.
+        """
+        status_text = "\n".join(status_list)
+        self.monitoring_label.config(text=status_text)
+
+    def refresh(self):
+        """Atualiza a página quando ela é exibida."""
+        device = self.app.get_selected_device()
+        if device:
+            self.status_label.config(text=f"Dispositivo: {device.get('ip')}")
+            status = self.app.logic.connection.get_connection_status(device)
+            self.update_connection_status_label(status)
+        else:
+            self.status_label.config(text="Nenhum dispositivo selecionado")
+            self.update_connection_status_label("Não conectado")

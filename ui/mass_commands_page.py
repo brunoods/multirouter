@@ -1,57 +1,94 @@
-# ui/mass_commands_page.py
-import tkinter as tk
-from tkinter import ttk, scrolledtext
+"""
+Página da interface para execução de comandos em massa.
+"""
+
+from tkinter import ttk
+from ttkbootstrap.scrolled import ScrolledText
 from logic.mass_commands import run_mass_commands
 
+
 class MassCommandsPage(ttk.Frame):
-    def __init__(self, parent, controller):
+    """Frame para a funcionalidade de comandos em massa."""
+
+    def __init__(self, parent, app):
         super().__init__(parent)
-        self.controller = controller
-        self.device_vars = {}
+        self.app = app
+        self.create_widgets()
 
-        # --- Frame Principal ---
-        main_frame = ttk.Frame(self)
-        main_frame.pack(fill="both", expand=True)
-        main_frame.grid_rowconfigure(0, weight=1)
-        main_frame.grid_columnconfigure(1, weight=3) # Dá mais espaço à área de resultados
+    def create_widgets(self):
+        """Cria os widgets da página."""
+        # Frame para a lista de dispositivos e comandos
+        input_frame = ttk.Frame(self)
+        input_frame.pack(fill="x", padx=10, pady=10)
 
-        # --- Frame de Seleção de Dispositivos (Esquerda) ---
-        selection_frame = ttk.LabelFrame(main_frame, text="1. Selecionar Dispositivos")
-        selection_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-        
-        self.device_list_frame = ttk.Frame(selection_frame)
-        self.device_list_frame.pack(fill="both", expand=True)
+        # Treeview para selecionar dispositivos
+        self.device_tree = ttk.Treeview(
+            input_frame, columns=("ip",), show="headings", height=5
+        )
+        self.device_tree.heading("ip", text="Selecionar Dispositivos")
+        self.device_tree.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        # --- Frame de Comando e Ação (Centro) ---
-        action_frame = ttk.LabelFrame(main_frame, text="2. Inserir Comando e Executar")
-        action_frame.grid(row=0, column=1, padx=(0, 10), pady=10, sticky="nsew")
-        
-        ttk.Label(action_frame, text="Comando(s) a executar:").pack(anchor="w", padx=5, pady=5)
-        self.command_entry = scrolledtext.ScrolledText(action_frame, height=5, wrap=tk.WORD, font=("Consolas", 9))
-        self.command_entry.pack(fill="x", expand=True, padx=5)
-        self.command_entry.insert("1.0", "show version")
+        # Área de texto para os comandos
+        self.command_text = ScrolledText(input_frame, wrap="word", height=5)
+        self.command_text.pack(side="left", fill="both", expand=True)
 
-        self.run_button = ttk.Button(action_frame, text="Executar nos Dispositivos Selecionados", style="primary",  command=lambda: run_mass_commands(self.controller))
-        self.run_button.pack(pady=10)
+        # Botão para executar
+        run_btn = ttk.Button(
+            self, text="Executar Comandos", command=self.execute, bootstyle="primary"
+        )
+        run_btn.pack(pady=5)
 
-        # --- Frame de Resultados (Abaixo) ---
-        results_frame = ttk.LabelFrame(main_frame, text="3. Resultados")
-        results_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="nsew")
-        
-        self.results_text = scrolledtext.ScrolledText(results_frame, height=15, wrap=tk.WORD, font=("Consolas", 9), state="normal", background="#ffffff")
-        self.results_text.pack(fill="both", expand=True, padx=5, pady=5)
+        # Barra de progresso
+        self.progress = ttk.Progressbar(
+            self, orient="horizontal", mode="determinate", length=300
+        )
+        self.progress.pack(pady=5)
 
-    def populate_device_list(self):
-        """Preenche a lista de checkboxes com os dispositivos do inventário."""
-        # Limpa widgets antigos
-        for widget in self.device_list_frame.winfo_children():
-            widget.destroy()
-        
-        self.device_vars.clear()
-        inventory = self.controller.inventory
-        
-        for device in inventory:
-            var = tk.BooleanVar()
-            cb = ttk.Checkbutton(self.device_list_frame, text=device['name'], variable=var)
-            cb.pack(anchor="w", padx=10, pady=2)
-            self.device_vars[device['id']] = var
+        # Área de texto para o resultado
+        output_frame = ttk.Labelframe(self, text="Resultado", padding=10)
+        output_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self.output_text = ScrolledText(output_frame, wrap="word")
+        self.output_text.pack(fill="both", expand=True)
+
+    def update_device_list(self, devices):
+        """Atualiza a lista de dispositivos na Treeview."""
+        self.device_tree.delete(*self.device_tree.get_children())
+        for device in devices:
+            self.device_tree.insert("", "end", values=(device["ip"],))
+
+    def execute(self):
+        """Inicia a execução dos comandos em massa."""
+        selected_items = self.device_tree.selection()
+        if not selected_items:
+            self.update_output("Nenhum dispositivo selecionado.\n")
+            return
+
+        all_devices = self.app.inventory_manager.get_devices()
+        selected_ips = {
+            self.device_tree.item(item)["values"][0] for item in selected_items
+        }
+
+        selected_devices = [dev for dev in all_devices if dev["ip"] in selected_ips]
+
+        commands = self.command_text.get("1.0", "end-1c")
+
+        self.output_text.delete("1.0", "end")
+        self.progress["value"] = 0
+
+        run_mass_commands(
+            selected_devices, commands, self, self.update_progress, self.on_complete
+        )
+
+    def update_output(self, data):
+        """Adiciona texto à área de resultado."""
+        self.output_text.insert("end", data)
+        self.output_text.see("end")
+
+    def update_progress(self, value):
+        """Atualiza a barra de progresso."""
+        self.progress["value"] = value
+
+    def on_complete(self):
+        """Chamado quando a execução termina."""
+        self.update_output("\n--- Execução Concluída ---\n")
+        self.progress["value"] = 100

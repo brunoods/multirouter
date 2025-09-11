@@ -1,69 +1,95 @@
-# logic/alerts_manager.py
 """
-Módulo para gerir a definição e verificação de regras de alerta.
+Gere a criação, armazenamento e verificação de alertas de rede.
 """
+
 import json
-import time
+import os
 from tkinter import messagebox
 
-ALERTS_FILE = "alerts.json"
 
-def load_alert_rules():
-    """Carrega as regras de alerta do ficheiro JSON."""
-    try:
-        with open(ALERTS_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
+class AlertsManager:
+    """Gere as operações de CRUD (Criar, Ler, Atualizar, Apagar) para os alertas."""
+
+    def __init__(self, filename="alerts.json"):
+        """
+        Inicializa o gestor de alertas.
+
+        Args:
+            filename (str): O nome do ficheiro para guardar os alertas.
+        """
+        self.filename = filename
+        self.alerts = self._load_alerts()
+
+    def _load_alerts(self):
+        """Carrega os alertas do ficheiro JSON."""
+        if os.path.exists(self.filename):
+            with open(self.filename, "r") as f:
+                return json.load(f)
         return []
-    except json.JSONDecodeError:
-        messagebox.showerror("Erro de Alertas", f"O ficheiro {ALERTS_FILE} está corrompido.")
-        return []
 
-def save_alert_rules(rules):
-    """Salva la lista de regras de alerta no ficheiro JSON."""
-    try:
-        with open(ALERTS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(rules, f, indent=4)
-    except Exception as e:
-        messagebox.showerror("Erro ao Salvar", f"Não foi possível salvar as regras de alerta: {e}")
+    def _save_alerts(self):
+        """Guarda os alertas no ficheiro JSON."""
+        with open(self.filename, "w") as f:
+            json.dump(self.alerts, f, indent=4)
 
-def add_alert_rule(rule_details):
-    """Adiciona uma nova regra de alerta."""
-    rules = load_alert_rules()
-    rule_details['id'] = int(time.time() * 1000)
-    rules.append(rule_details)
-    save_alert_rules(rules)
+    def add_alert(self, alert):
+        """
+        Adiciona um novo alerta à lista.
 
-def remove_alert_rule(rule_id):
-    """Remove uma regra de alerta pelo seu ID."""
-    rules = load_alert_rules()
-    rules = [rule for rule in rules if rule.get('id') != rule_id]
-    save_alert_rules(rules)
+        Args:
+            alert (dict): O dicionário do alerta a ser adicionado.
+        """
+        self.alerts.append(alert)
+        self._save_alerts()
 
-def check_alerts(app, device_id, parsed_data):
-    """Verifica os dados recolhidos contra as regras de alerta definidas."""
-    rules = load_alert_rules()
-    triggered_alerts = []
+    def get_alerts(self):
+        """Retorna todos os alertas."""
+        return self.alerts
 
-    for rule in rules:
-        if rule.get('device_id') == device_id:
-            # Lógica para a regra "Interface Status"
-            if rule['metric'] == 'Interface Status':
-                interfaces = parsed_data.get('interfaces', [])
-                for interface in interfaces:
-                    if interface['name'] == rule['interface_name']:
-                        actual_status = interface['status']
-                        expected_status = rule['value']
-                        condition = rule['condition']
-                        
-                        if condition == 'not equals' and actual_status != expected_status:
-                            alert_message = (f"ALERTA: Interface '{interface['name']}' no dispositivo "
-                                             f"'{rule['device_name']}' está com o estado '{actual_status}', "
-                                             f"mas o esperado era '{expected_status}'.")
-                            triggered_alerts.append(alert_message)
-    
-    if triggered_alerts:
-        app.after(0, show_alert_popup, "\n\n".join(triggered_alerts))
+    def update_alert(self, index, updated_alert):
+        """
+        Atualiza um alerta existente.
 
-def show_alert_popup(message):
-    messagebox.showwarning("Alerta de Monitorização", message)
+        Args:
+            index (int): O índice do alerta a ser atualizado.
+            updated_alert (dict): O dicionário com os dados atualizados do alerta.
+        """
+        if 0 <= index < len(self.alerts):
+            self.alerts[index] = updated_alert
+            self._save_alerts()
+
+    def delete_alert(self, index):
+        """
+        Apaga um alerta.
+
+        Args:
+            index (int): O índice do alerta a ser apagado.
+        """
+        if 0 <= index < len(self.alerts):
+            del self.alerts[index]
+            self._save_alerts()
+
+
+def check_alerts(app):
+    """
+    Verifica todos os alertas definidos.
+
+    Args:
+        app: A instância principal da aplicação.
+    """
+    alerts_manager = app.alerts_manager
+    inventory_manager = app.inventory_manager
+    alerts = alerts_manager.get_alerts()
+    devices = inventory_manager.get_devices()
+
+    for alert in alerts:
+        for device in devices:
+            # Lógica de verificação de alertas (exemplo)
+            if alert["type"] == "Status da Interface" and alert["device"] == device.get(
+                "ip"
+            ):
+                messagebox.showinfo(
+                    "Alerta",
+                    f"A verificar o status da interface para o alerta:"
+                    f"\n{alert['name']} no dispositivo {device.get('ip')}",
+                )

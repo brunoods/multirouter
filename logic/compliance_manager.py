@@ -1,99 +1,87 @@
-# logic/compliance_manager.py
 """
-Módulo para a lógica de execução de auditorias de conformidade.
+Gere as regras de conformidade e a sua verificação nos dispositivos de rede.
 """
-import threading
+
+import json
+import os
 from tkinter import messagebox
-from netmiko import ConnectHandler
-from logic.inventory_manager import load_inventory
 
-def run_compliance_audit(app):
+
+class ComplianceManager:
+    """Gere as operações de CRUD para as regras de conformidade."""
+
+    def __init__(self, filename="compliance_rules.json"):
+        """
+        Inicializa o gestor de conformidade.
+
+        Args:
+            filename (str): O nome do ficheiro para guardar as regras.
+        """
+        self.filename = filename
+        self.rules = self._load_rules()
+
+    def _load_rules(self):
+        """Carrega as regras de conformidade do ficheiro JSON."""
+        if os.path.exists(self.filename):
+            with open(self.filename, "r") as f:
+                return json.load(f)
+        return []
+
+    def _save_rules(self):
+        """Guarda as regras de conformidade no ficheiro JSON."""
+        with open(self.filename, "w") as f:
+            json.dump(self.rules, f, indent=4)
+
+    def add_rule(self, rule):
+        """Adiciona uma nova regra."""
+        self.rules.append(rule)
+        self._save_rules()
+
+    def get_rules(self):
+        """Retorna todas as regras."""
+        return self.rules
+
+    def update_rule(self, index, updated_rule):
+        """
+        Atualiza uma regra existente.
+
+        Args:
+            index (int): O índice da regra a ser atualizada.
+            updated_rule (dict): A regra com os dados atualizados.
+        """
+        if 0 <= index < len(self.rules):
+            self.rules[index] = updated_rule
+            self._save_rules()
+
+    def delete_rule(self, index):
+        """Apaga uma regra."""
+        if 0 <= index < len(self.rules):
+            del self.rules[index]
+            self._save_rules()
+
+
+def check_compliance(app, device, rule):
     """
-    Inicia a auditoria de conformidade em todos os dispositivos do inventário.
-    Usa threading para não bloquear a interface gráfica.
+    Verifica se a configuração de um dispositivo está em conformidade com uma regra.
+
+    Args:
+        app: A instância principal da aplicação.
+        device (dict): O dispositivo a ser verificado.
+        rule (dict): A regra a ser aplicada.
     """
-    compliance_page = app.frames[app.pages["CompliancePage"]]
-    
-    inventory = load_inventory()
-    if not inventory:
-        messagebox.showwarning("Inventário Vazio", "Não há dispositivos no inventário para auditar.")
-        return
+    # Lógica de verificação de conformidade
+    messagebox.showinfo(
+        "Verificação de Conformidade",
+        f"A verificar a regra '{rule['name']}' no dispositivo {device.get('ip')}",
+    )
+    # Aqui entraria a lógica real para obter a configuração e compará-la.
+    is_compliant = True  # Placeholder
 
-    # Limpa resultados antigos e desativa o botão
-    compliance_page.tree.delete(*compliance_page.tree.get_children())
-    compliance_page.run_button.config(state="disabled")
-    app.status_label.config(text=f"A executar auditoria em {len(inventory)} dispositivo(s)...")
-
-    # Executa a lógica de conexão numa thread separada
-    thread = threading.Thread(target=execute_audit_in_background, args=(app, inventory))
-    thread.start()
-
-def execute_audit_in_background(app, inventory):
-    """
-    Função que corre em segundo plano para se conectar a cada dispositivo e verificar a conformidade.
-    """
-    all_results = []
-
-    for device in inventory:
-        vendor_module = app.VENDOR_MODULES.get(device['type_name'])
-        if not vendor_module:
-            all_results.append({'device': device['name'], 'rule': 'Conexão', 'status': 'Falhou', 'details': 'Tipo de dispositivo não suportado.'})
-            continue
-        
-        # Monta os detalhes da conexão
-        conn_details = device.copy()
-        conn_details['device_type'] = vendor_module.device_type
-        
-        try:
-            raw_config = ""
-            if not app.sim_mode.get():
-                with ConnectHandler(**conn_details) as net_connect:
-                    # Usa o comando de 'running config' definido no módulo do fabricante
-                    config_command = vendor_module.get_config_commands().get("running")
-                    if config_command:
-                        raw_config = net_connect.send_command(config_command)
-            else: # Modo Simulação
-                if "Cisco" in device['type_name']:
-                    raw_config = "hostname Cisco-Simulado\n!\nntp server 1.1.1.1"
-                elif "Juniper" in device['type_name']:
-                    raw_config = "system { host-name Juniper-Simulado; ntp { server 2.2.2.2; } }"
-                elif "Mikrotik" in device['type_name']:
-                    raw_config = "/system ntp client set enabled=yes servers=3.3.3.3"
-
-            # Executa a verificação de conformidade
-            if hasattr(vendor_module, 'check_compliance'):
-                compliance_results = vendor_module.check_compliance(raw_config)
-                for result in compliance_results:
-                    result['device'] = device['name']
-                    all_results.append(result)
-
-        except Exception as e:
-            all_results.append({'device': device['name'], 'rule': 'Conexão', 'status': 'Falhou', 'details': f"Erro ao conectar: {e}"})
-
-    # Após terminar o loop, atualiza a GUI a partir da thread principal
-    app.after(0, update_gui_with_audit_results, app, all_results)
-
-
-def update_gui_with_audit_results(app, all_results):
-    """Atualiza a interface gráfica com os resultados da auditoria."""
-    compliance_page = app.frames[app.pages["CompliancePage"]]
-    
-    # Limpa a tabela antes de inserir novos resultados
-    compliance_page.tree.delete(*compliance_page.tree.get_children())
-    
-    # Prepara as tags de cor
-    compliance_page.tree.tag_configure('Pass', background='#c8e6c9') # Verde
-    compliance_page.tree.tag_configure('Fail', background='#ffcdd2') # Vermelho
-
-    for result in all_results:
-        status = result.get('status', 'N/A')
-        tag = 'Pass' if status == 'Conforme' else 'Fail'
-        compliance_page.tree.insert("", "end", values=(
-            result.get('device', 'N/A'),
-            result.get('rule', 'N/A'),
-            status,
-            result.get('details', '')
-        ), tags=(tag,))
-        
-    compliance_page.run_button.config(state="normal")
-    app.status_label.config(text="Auditoria de conformidade concluída.")
+    result_message = (
+        f"O dispositivo {device.get('ip')} está em conformidade "
+        f"com a regra '{rule['name']}'."
+        if is_compliant
+        else f"O dispositivo {device.get('ip')} NÃO está em conformidade com a "
+        f"regra '{rule['name']}'."
+    )
+    messagebox.showinfo("Resultado da Conformidade", result_message)

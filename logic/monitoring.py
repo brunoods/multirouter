@@ -1,52 +1,63 @@
-# logic/monitoring.py
 """
-Módulo para a lógica de monitorização contínua de dispositivos.
+Módulo responsável pela monitorização periódica do estado dos dispositivos.
 """
-import time
+
 import threading
-from logic.connection import connect_and_read_config
-from logic.alerts_manager import check_alerts
+from logic.connection import get_connection_status
 
-class MonitorThread:
-    def __init__(self, app, interval_seconds):
+
+class Monitoring:
+    """Gere a tarefa de monitorização de dispositivos em segundo plano."""
+
+    def __init__(self, app, interval=60):
+        """
+        Inicializa o monitor.
+
+        Args:
+            app: A instância principal da aplicação.
+            interval (int): O intervalo em segundos entre cada verificação.
+        """
         self.app = app
-        self.interval = interval_seconds
-        self._stop_event = threading.Event()
-        self.thread = threading.Thread(target=self._run, daemon=True)
-
-    def _run(self):
-        """O loop que corre em segundo plano."""
-        while not self._stop_event.is_set():
-            connect_and_read_config(self.app, is_monitoring_thread=True, alert_callback=check_alerts)
-            self._stop_event.wait(self.interval)
+        self.interval = interval
+        self.running = False
+        self.thread = None
 
     def start(self):
-        self.thread.start()
+        """Inicia a monitorização."""
+        if not self.running:
+            self.running = True
+            self.thread = threading.Thread(target=self._run, daemon=True)
+            self.thread.start()
+            print("Monitorização iniciada.")
 
     def stop(self):
-        self._stop_event.set()
+        """Para a monitorização."""
+        self.running = False
+        if self.thread:
+            print("A parar a monitorização...")
+            self.thread.join()  # Espera a thread terminar
+            print("Monitorização parada.")
 
-def toggle_monitoring(app):
-    """Inicia ou para o ciclo de monitorização."""
-    overview_page = app.frames[app.pages["OverviewPage"]]
-    
-    if not hasattr(app, 'monitoring_thread') or not app.monitoring_thread.thread.is_alive():
-        try:
-            interval = int(overview_page.interval_entry.get())
-            if interval < 10:
-                app.status_label.config(text="Intervalo mínimo é 10 segundos.")
-                return
-        except ValueError:
-            app.status_label.config(text="Intervalo inválido. Por favor, insira um número.")
-            return
+    def _run(self):
+        """O loop principal que executa a verificação de status."""
+        while self.running:
+            devices = self.app.inventory_manager.get_devices()
+            status_list = []
+            for device in devices:
+                status = get_connection_status(device)
+                status_list.append(f"{device.get('ip')}: {status}")
 
-        app.monitoring_thread = MonitorThread(app, interval)
-        app.monitoring_thread.start()
-        
-        overview_page.monitor_button.config(text="Parar Monitorização")
-        app.status_label.config(text=f"Monitorização iniciada. A atualizar a cada {interval} segundos.")
-    
-    else:
-        app.monitoring_thread.stop()
-        overview_page.monitor_button.config(text="Iniciar Monitorização")
-        app.status_label.config(text="Monitorização parada.")
+            # Atualiza a UI na thread principal
+            self.app.after(0, self._update_ui, status_list)
+
+            # Espera pelo próximo intervalo (verificando self.running)
+            for _ in range(self.interval):
+                if not self.running:
+                    break
+                threading.Event().wait(1)
+
+    def _update_ui(self, status_list):
+        """Atualiza a página de visão geral com o status dos dispositivos."""
+        overview_page = self.app.pages.get("overview")
+        if overview_page:
+            overview_page.update_monitoring_status(status_list)

@@ -1,89 +1,68 @@
-# logic/mass_commands.py
 """
-Módulo para a lógica de execução de comandos em massa.
+Este módulo gere a execução de comandos em múltiplos dispositivos em simultâneo.
 """
-from tkinter import messagebox
-from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticationException
+
 import threading
+from logic.connection import get_connection
 
-def run_mass_commands(app):
+# Nota: As importações de NetmikoTimeoutException e
+# NetmikoAuthenticationException foram removidas porque não eram usadas aqui.
+
+
+def run_mass_commands(
+    devices, commands, mass_commands_page, progress_callback, completion_callback
+):
     """
-    Executa um comando em todos os dispositivos selecionados na página de Comandos em Massa.
-    Usa threading para não bloquear a interface gráfica durante a execução.
+    Executa comandos em múltiplos dispositivos de forma assíncrona.
+
+    Args:
+        devices (list): Lista de dispositivos onde os comandos serão executados.
+        commands (str): String com os comandos a serem executados, um por linha.
+        mass_commands_page: A página da UI para atualizar com os resultados.
+        progress_callback (function): Função para ser chamada com o progresso.
+        completion_callback (function): Função a ser chamada quando tudo terminar.
     """
-    mass_commands_page = app.frames[app.pages["MassCommandsPage"]]
-    
-    # Obtém os dispositivos selecionados
-    selected_devices = []
-    for device_id, var in mass_commands_page.device_vars.items():
-        if var.get(): # Se a checkbox estiver marcada
-            device_details = next((d for d in app.inventory if d['id'] == device_id), None)
-            if device_details:
-                selected_devices.append(device_details)
-
-    command_to_run = mass_commands_page.command_entry.get("1.0", "end-1c").strip()
-
-    if not selected_devices:
-        messagebox.showwarning("Nenhuma Seleção", "Por favor, selecione pelo menos um dispositivo.")
-        return
-        
-    if not command_to_run:
-        messagebox.showwarning("Comando Vazio", "Por favor, insira um comando para executar.")
-        return
-
-    # Limpa a área de resultados e desativa o botão para evitar cliques duplos
-    mass_commands_page.results_text.delete('1.0', 'end')
-    mass_commands_page.run_button.config(state="disabled")
-    app.status_label.config(text=f"A executar em {len(selected_devices)} dispositivo(s)...")
-
-    # Executa a lógica de conexão numa thread separada
-    thread = threading.Thread(target=execute_in_background, args=(app, selected_devices, command_to_run))
+    command_list = commands.splitlines()
+    thread = threading.Thread(
+        target=_execute_commands_thread,
+        args=(
+            devices,
+            command_list,
+            mass_commands_page,
+            progress_callback,
+            completion_callback,
+        ),
+    )
     thread.start()
 
 
-def execute_in_background(app, selected_devices, command_to_run):
+def _execute_commands_thread(
+    devices, command_list, mass_commands_page, progress_callback, completion_callback
+):
     """
-    Função que corre em segundo plano para se conectar aos dispositivos e executar os comandos.
+    Função executada numa thread para enviar comandos para os dispositivos.
     """
-    mass_commands_page = app.frames[app.pages["MassCommandsPage"]]
-    final_results = ""
+    total_devices = len(devices)
+    for i, device in enumerate(devices):
+        ip = device.get("ip")
+        output = f"--- A executar comandos em {ip} ---\n"
+        connection = get_connection(device)
+        if connection:
+            for command in command_list:
+                try:
+                    result = connection.send_command(command)
+                    output += f"$ {command}\n{result}\n"
+                except Exception as e:
+                    output += f"Erro ao executar o comando '{command}' em {ip}: {e}\n"
+            output += f"--- Fim da execução em {ip} ---\n\n"
+        else:
+            output = f"--- Dispositivo {ip} não conectado ---\n\n"
 
-    for device in selected_devices:
-        header = f"--- RESULTADOS PARA: {device['name']} ({device['host']}) ---\n"
-        final_results += header
-        
-        vendor_module = app.VENDOR_MODULES.get(device['type_name'])
-        if not vendor_module:
-            final_results += "ERRO: Tipo de dispositivo não suportado.\n\n"
-            continue
+        # Atualiza a UI a partir da thread principal
+        mass_commands_page.after(0, mass_commands_page.update_output, output)
 
-        # Monta os detalhes da conexão
-        conn_details = device.copy()
-        conn_details['device_type'] = vendor_module.device_type
-        
-        try:
-            if not app.sim_mode.get():
-                with ConnectHandler(**conn_details) as net_connect:
-                    output = net_connect.send_command(command_to_run)
-                    final_results += output + "\n\n"
-            else: # Modo Simulação
-                time.sleep(1) # Simula o atraso da rede
-                output = f"Saída simulada para o comando '{command_to_run}' em {device['name']}."
-                final_results += output + "\n\n"
+        # Atualiza o progresso
+        progress = int(((i + 1) / total_devices) * 100)
+        progress_callback(progress)
 
-        except Exception as e:
-            final_results += f"ERRO AO CONECTAR: {e}\n\n"
-
-    # Após terminar o loop, atualiza a GUI a partir da thread principal
-    app.after(0, update_gui_with_results, app, final_results)
-
-def update_gui_with_results(app, results):
-    """Atualiza a interface gráfica com os resultados. Deve ser chamado pela thread principal."""
-    mass_commands_page = app.frames[app.pages["MassCommandsPage"]]
-    mass_commands_page.results_text.delete('1.0', 'end')
-    mass_commands_page.results_text.insert('1.0', results)
-    mass_commands_page.run_button.config(state="normal")
-    app.status_label.config(text="Execução de comandos em massa concluída.")
-
-# Import 'time' para a simulação
-import time
+    completion_callback()
